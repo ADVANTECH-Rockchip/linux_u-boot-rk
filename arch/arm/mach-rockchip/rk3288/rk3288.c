@@ -362,12 +362,16 @@ int board_early_init_f(void)
 		return ret;
 	}
 
+#ifdef CONFIG_TARGET_ADVANTECH_RK3288
+	adv_board_early_init();
+#else
 	/* Enable debug UART */
 	ret = pinctrl_request_noflags(pinctrl, PERIPH_ID_UART_DBG);
 	if (ret) {
 		debug("%s: Failed to set up console UART\n", __func__);
 		return ret;
 	}
+#endif
 	rk_setreg(GRF_SOC_CON2, 1 << 0);
 
 	return 0;

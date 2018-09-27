@@ -17,6 +17,9 @@
 #include <fdt_support.h>
 #include <exports.h>
 #include <fdtdec.h>
+#ifdef CONFIG_TARGET_ADVANTECH_RK3288
+#include <malloc.h>
+#endif
 
 /**
  * fdt_getprop_u32_default_node - Return a node's property or a default
@@ -322,6 +325,34 @@ int fdt_chosen(void *fdt)
 				env_update_filter("bootargs", bootargs, "initrd=");
 #endif
 			}
+#ifdef CONFIG_TARGET_ADVANTECH_RK3288
+		if(env_get("silent_linux")){
+			char *command_line = NULL,*e,*p;
+			uint len;
+			int  node;
+
+			command_line = malloc(strlen(str)+sizeof("console=/dev/null")+1);
+			memset(command_line,0,strlen(str)+sizeof("console=/dev/null")+1);
+			p = str;
+			e = p;
+			p = strstr(p,"console=");
+			strncpy(command_line, e, p-e);
+			snprintf(command_line, strlen(command_line)+sizeof("console=/dev/null"),
+						"%sconsole=%s", command_line, "/dev/null");
+			len = strlen(command_line);
+			p = strstr(p," ");
+			strncpy(command_line+len, p, strlen(p));
+			command_line[strlen(command_line)] = '\0';
+			env_set("bootargs", command_line);
+			free(command_line);
+
+			//disable ttyFIQ0
+			node = fdt_subnode_offset(fdt, 0, "fiq-debugger");
+			if (node)
+				fdt_setprop(fdt, node, "status", "disabled", sizeof("disabled"));
+			str = env_get("bootargs");
+		}
+#endif
 #endif
 		}
 

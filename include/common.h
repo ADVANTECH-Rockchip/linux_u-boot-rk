@@ -472,6 +472,9 @@ int board_late_init (void);
 int board_postclk_init (void); /* after clocks/timebase, before env/serial */
 int board_early_init_r (void);
 void board_poweroff (void);
+#ifdef CONFIG_TARGET_ADVANTECH_RK3288
+int adv_board_early_init(void);
+#endif
 
 #if defined(CONFIG_SYS_DRAM_TEST)
 int testdram(void);

@@ -170,8 +170,13 @@ void NS16550_init(NS16550_t com_port, int baud_divisor)
 	}
 #endif
 
+#ifdef CONFIG_TARGET_ADVANTECH_RK3288
+	serial_out(0x7, &com_port->ssr);
+	serial_out(0x0, &com_port->ier);
+#else
 	while (!(serial_in(&com_port->lsr) & UART_LSR_TEMT))
 		;
+#endif
 
 	serial_out(CONFIG_SYS_NS16550_IER, &com_port->ier);
 #if defined(CONFIG_ARCH_OMAP2PLUS)
