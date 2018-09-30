@@ -4,13 +4,15 @@
  * SPDX-License-Identifier:     GPL-2.0+
  */
 
-#ifndef __EBCRB03_RK3288_CONFIG_H
-#define __EBCRB03_RK3288_CONFIG_H
+#ifndef __RSB4680_RK3288_CONFIG_H
+#define __RSB4680_RK3288_CONFIG_H
 
-#define ROCKCHIP_DEVICE_SETTINGS
 #include <configs/rk3288_common.h>
 
 #define CONFIG_SYS_MMC_ENV_DEV 0
+#define ROCKCHIP_DEVICE_SETTINGS \
+		"stdout=serial,vidconsole\0" \
+		"stderr=serial,vidconsole\0"
 
 #ifdef CONFIG_DISPLAY_BOARDINFO_LATE
 #undef CONFIG_DISPLAY_BOARDINFO_LATE
