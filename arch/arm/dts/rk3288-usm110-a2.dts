@@ -10,8 +10,8 @@
 #include <dt-bindings/input/input.h>
 
 / {
-	compatible = "rockchip,rk3288-rb03", "rockchip,rk3288";
-	model = "EBC-RB03 a102-1";
+	compatible = "rockchip,rk3288-usm110", "rockchip,rk3288";
+	model = "USM-110 a102-1";
 
 	chosen {
 		stdout-path = &uart2;
