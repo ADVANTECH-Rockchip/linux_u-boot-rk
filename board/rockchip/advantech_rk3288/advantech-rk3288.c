@@ -21,6 +21,7 @@
 #include <asm/arch/pmu_rk3288.h>
 #include <asm/arch/qos_rk3288.h>
 #include <asm/arch/sys_proto.h>
+#include <asm/arch/boot_mode.h>
 #include <asm/gpio.h>
 #include <dm/pinctrl.h>
 #include <dt-bindings/clock/rk3288-cru.h>
@@ -82,11 +83,12 @@ int adv_board_early_init(void)
 #endif
 
 #ifdef CONFIG_RESET_PMIC_GPIO
-	if(BOOT_MODE_NORMAL == rockchip_get_boot_mode())
+	if(BOOT_NORMAL == readl((void *)CONFIG_ROCKCHIP_BOOT_MODE_REG))
 	{
-		gpio_direction_output(CONFIG_RESET_PMIC_GPIO,1);
-		mdelay(5);
+		gpio_request(CONFIG_RESET_PMIC_GPIO,"reset pmic");
 		gpio_direction_output(CONFIG_RESET_PMIC_GPIO,0);
+		mdelay(5);
+		gpio_direction_output(CONFIG_RESET_PMIC_GPIO,1);
 		while(1);
 	}
 #endif
