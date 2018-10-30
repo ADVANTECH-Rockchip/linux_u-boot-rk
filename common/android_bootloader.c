@@ -819,7 +819,11 @@ int android_bootloader_boot_flow(struct blk_desc *dev_desc,
 			mode = ANDROID_BOOT_MODE_RECOVERY;
 	}
 #endif
+#ifdef CONFIG_TARGET_ADVANTECH_RK3288
+	printf("Linux: reboot reason: \"%s\"\n", android_boot_mode_str(mode));
+#else
 	printf("ANDROID: reboot reason: \"%s\"\n", android_boot_mode_str(mode));
+#endif
 
 #ifdef CONFIG_ANDROID_AB
 	/*TODO: get from pre-loader or misc partition*/
@@ -922,7 +926,11 @@ int android_bootloader_boot_flow(struct blk_desc *dev_desc,
 	command_line = android_assemble_cmdline(slot_suffix, mode_cmdline);
 	env_update("bootargs", command_line);
 
+#ifdef CONFIG_TARGET_ADVANTECH_RK3288
+	debug("Linux: bootargs: \"%s\"\n", command_line);
+#else
 	debug("ANDROID: bootargs: \"%s\"\n", command_line);
+#endif
 
 #ifdef CONFIG_SUPPORT_OEM_DTB
 	if (android_bootloader_get_fdt(ANDROID_PARTITION_OEM,
