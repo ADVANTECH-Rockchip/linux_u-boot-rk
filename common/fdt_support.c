@@ -288,6 +288,67 @@ int fdt_initrd(void *fdt, ulong initrd_start, ulong initrd_end)
 	return 0;
 }
 
+#ifdef CONFIG_TARGET_ADVANTECH_RK3288
+static int set_lcm_prop_by_alias(void *fdt, const char *name, int enable)
+{
+	int err = 0;
+	const char *path;
+	int  node;
+
+	path = fdt_get_alias(fdt, name);
+	if (!path)
+	{
+		printf("WARNING :set %s error: %s\n", name, fdt_strerror(-FDT_ERR_BADPATH));
+		return -FDT_ERR_BADPATH;
+	}
+
+	node = fdt_path_offset(fdt, path);
+
+	if (node){
+		if(enable)
+			err = fdt_setprop(fdt, node, "status", "okay", sizeof("okay"));
+		else
+			err = fdt_setprop(fdt, node, "status", "disabled", sizeof("disabled"));
+	}
+	else
+	{
+		err = -FDT_ERR_BADOFFSET;
+	}
+
+	if (err < 0) {
+			printf("WARNING :set %s error: %s\n", name, fdt_strerror(err));
+	}
+
+	return err;
+}
+
+static int set_lcm_prop(void *fdt, const char *name, int enable)
+{
+	int err = 0;
+	int  node;
+
+	node = fdt_subnode_offset(fdt, 0, name);
+	if (node){
+		if(enable)
+			err = fdt_setprop(fdt, node, "status", "okay", sizeof("okay"));
+		else
+			err = fdt_setprop(fdt, node, "status", "disabled", sizeof("disabled"));
+	}
+	else
+	{
+		err = -FDT_ERR_BADOFFSET;
+	}
+
+	if (err < 0) {
+			printf("WARNING :set %s error: %s\n", name, fdt_strerror(err));
+	}
+
+	return err;
+}
+
+#endif
+
+
 int fdt_chosen(void *fdt)
 {
 	/*
@@ -442,62 +503,24 @@ int fdt_chosen(void *fdt)
 			// edp + lvds : 3
 			case (1 << LCD_EDP_OFFSET | 1 << LCD_LVDS_OFFSET):
 				// disable hdmi
-				node = fdt_subnode_offset(fdt, 0, "hdmi");
-				if (node){
-					fdt_setprop(fdt, node, "status", "disabled", sizeof("disabled"));
-				}
+				set_lcm_prop_by_alias(fdt, "hdmi", 0);
 
 				// enable lvds
-				node = fdt_subnode_offset(fdt, 0, "lvds");
-				if (node){
-					fdt_setprop(fdt, node, "status", "okay", sizeof("okay"));
-				}
-
-				node = fdt_subnode_offset(fdt, 0, "lvds_panel");
-				if (node){
-					fdt_setprop(fdt, node, "status", "okay", sizeof("okay"));
-				}
-
-				// set vopb and vopl
-				node = fdt_subnode_offset(fdt, 0, "lvds_in_vopl");
-				if (node){
-					fdt_setprop(fdt, node, "status", "disabled", sizeof("disabled"));
-				}
+				set_lcm_prop_by_alias(fdt, "lvds", 1);
+				set_lcm_prop(fdt, "lvds_panel", 1);
+				set_lcm_prop_by_alias(fdt, "lvds_in_vopb", 1);
 				break;
 			// lvds + hdmi : 6
 			case (1 << LCD_LVDS_OFFSET | 1 << LCD_HDMI_OFFSET):
 				//disable edp
-				node = fdt_subnode_offset(fdt, 0, "dp");
-				if (node){
-					fdt_setprop(fdt, node, "status", "disabled", sizeof("disabled"));
-				}
-
-				node = fdt_subnode_offset(fdt, 0, "edp_panel");
-				if (node){
-					fdt_setprop(fdt, node, "status", "disabled", sizeof("disabled"));
-				}
-
-				node = fdt_subnode_offset(fdt, 0, "edp_phy");
-				if (node){
-					fdt_setprop(fdt, node, "status", "disabled", sizeof("disabled"));
-				}
+				set_lcm_prop_by_alias(fdt, "edp", 0);
+				set_lcm_prop_by_alias(fdt, "edp_phy", 0);
+				set_lcm_prop(fdt, "edp_panel", 0);
 
 				//enable lvds
-				node = fdt_subnode_offset(fdt, 0, "lvds");
-				if (node){
-					fdt_setprop(fdt, node, "status", "okay", sizeof("okay"));
-				}
-
-				node = fdt_subnode_offset(fdt, 0, "lvds_panel");
-				if (node){
-					fdt_setprop(fdt, node, "status", "okay", sizeof("okay"));
-				}
-
-				// set vopb and vopl
-				node = fdt_subnode_offset(fdt, 0, "lvds_in_vopb");
-				if (node){
-					fdt_setprop(fdt, node, "status", "disabled", sizeof("disabled"));
-				}
+				set_lcm_prop_by_alias(fdt, "lvds", 1);
+				set_lcm_prop_by_alias(fdt, "lvds_in_vopl", 1);
+				set_lcm_prop(fdt, "lvds_panel", 1);
 				break;
 
 			default :
