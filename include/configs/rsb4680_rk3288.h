@@ -47,7 +47,6 @@
 #ifdef CONFIG_IDENT_STRING
 #undef CONFIG_IDENT_STRING
 #endif
-#define CONFIG_IDENT_STRING " V1.000"
 
 /* mac in spi*/
 #define CONFIG_ENV_OVERWRITE
