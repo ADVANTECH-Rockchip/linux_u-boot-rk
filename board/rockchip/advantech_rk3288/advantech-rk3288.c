@@ -9,6 +9,7 @@
 #include <dm.h>
 #include <spi.h>
 #include <spi_flash.h>
+#include <version.h>
 #include <boot_rkimg.h>
 #include <asm/armv7.h>
 #include <asm/io.h>
@@ -100,14 +101,15 @@ int adv_board_early_init(void)
 static int board_info_in_spi(void)
 {
     struct spi_flash *flash;
-	uchar enetaddr[6];
+	uchar enetaddr[50];
 	u32 valid;
+	int sn_len,time_len,info_len;
 
 	flash = spi_flash_probe(CONFIG_SF_DEFAULT_BUS, CONFIG_SF_DEFAULT_CS,
 				CONFIG_SF_DEFAULT_SPEED, CONFIG_SF_DEFAULT_MODE);
 	if (!flash)
 		return -1;
-	if(spi_flash_read(flash, CONFIG_SPI_MAC_OFFSET, 6, enetaddr)==0) {
+	if(spi_flash_read(flash, CONFIG_SPI_MAC_OFFSET, 50, enetaddr)==0) {
 		spi_flash_free(flash);
 		valid = is_valid_ethaddr(enetaddr);
 
@@ -115,17 +117,53 @@ static int board_info_in_spi(void)
 			eth_env_set_enetaddr("ethaddr", enetaddr);
 		else
 			puts("Skipped ethaddr assignment due to invalid,using default!\n");
+
+		sn_len = enetaddr[12];
+		time_len = enetaddr[13+sn_len];
+		info_len = enetaddr[14+sn_len+time_len];
+		if(sn_len && (sn_len != 0xff)) {
+			enetaddr[13+sn_len] = '\0';
+			env_set("boardsn", (void *)(&enetaddr[13]));
+			if(time_len && (time_len != 0xff)) {
+				enetaddr[14+sn_len+time_len] = '\0';
+				env_set("androidboot.factorytime", (void *)(&enetaddr[14+sn_len]));
+				if(info_len && (info_len != 0xff)) {
+					enetaddr[15+sn_len+time_len+info_len] = '\0';
+					env_set("androidboot.serialno", (void *)(&enetaddr[15+sn_len+time_len]));
+				}else
+					env_set("androidboot.serialno", NULL);
+			}else
+				env_set("androidboot.factorytime", NULL);
+		} else {
+			env_set("boardsn", NULL);
+			env_set("androidboot.factorytime", NULL);
+			env_set("androidboot.serialno", NULL);
+		}
 	}
 	
 	return 0;
 }
 #endif 
 
+static void board_version_config(void)
+{
+	unsigned char version[10];
+
+	memset((void *)version,0,sizeof(version));
+	snprintf((void *)version,sizeof(version),"%s",strrchr(PLAIN_VERSION,'V'));
+	if(version[0]=='V')
+		env_set("swversion",(void *)version);
+	else
+		env_set("swversion",NULL);
+}
+
 int rk3288_board_late_init(void)
 {
 #ifdef CONFIG_MAC_IN_SPI
 	board_info_in_spi();
 #endif
+
+	board_version_config();
 
 #ifdef CONFIG_SWITCH_DEBUG_PORT_TO_UART
 	gpio_request(DEBUG_SWITCH_GPIO,"debug switch");

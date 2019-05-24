@@ -368,6 +368,7 @@ int fdt_chosen(void *fdt)
 	char *extend_screen;
 	int screen_mode = 0;
 	char *allocated_screen = NULL;
+	const char *prop = NULL;
 #endif
 
 	err = fdt_check_header(fdt);
@@ -435,6 +436,61 @@ int fdt_chosen(void *fdt)
 				fdt_setprop(fdt, node, "status", "disabled", sizeof("disabled"));
 			str = env_get("bootargs");
 		}
+
+		if(env_get("androidboot.serialno")){
+			str = env_get("bootargs");
+			command_line = malloc(strlen(str)+100);
+			memset(command_line,0,strlen(str)+100);
+			memcpy(command_line,str,strlen(str));
+			strcat(command_line, " androidboot.serialno=");
+			strcat(command_line, env_get("androidboot.serialno"));
+			env_set("bootargs", command_line);
+			free(command_line);
+		}
+
+		if(env_get("androidboot.factorytime")){
+			str = env_get("bootargs");
+			command_line = malloc(strlen(str)+100);
+			memset(command_line,0,strlen(str)+100);
+			memcpy(command_line,str,strlen(str));
+			strcat(command_line, " androidboot.factorytime=");
+			strcat(command_line, env_get("androidboot.factorytime"));
+			env_set("bootargs", command_line);
+			free(command_line);
+		}
+
+		prop = fdt_getprop(fdt, 0, "model", NULL);
+		if(prop){
+			command_line = malloc(100);
+			memset(command_line,0,100);
+
+			p = env_get("boardsn");
+			e = strstr(prop," ");
+			memcpy(command_line,prop,e-prop);
+			if(p){
+				strcat(command_line, " ");
+				strcat(command_line, p);
+			} else {
+				strcat(command_line, " unknown");
+			}
+			#if 1
+			e = env_get("swversion");
+			if(e){
+				strcat(command_line, " ");
+				strcat(command_line, e);
+			} else {
+				e = strrchr(prop,' ');
+				strcat(command_line, e);
+			}
+			#else
+			e = strrchr(prop,' ');
+			strcat(command_line, e);
+			#endif
+
+			fdt_setprop(fdt, 0, "model", command_line,strlen(command_line)+1);
+			free(command_line);
+		}else
+			printf("can't find model node\n");
 
 		// set screen begin
 		prmry_screen = env_get("prmry_screen");
@@ -527,6 +583,10 @@ int fdt_chosen(void *fdt)
 
 				break;
 		}
+
+		nodeoffset = fdt_find_or_add_subnode(fdt, 0, "chosen");
+		if (nodeoffset < 0)
+			return nodeoffset;
 #endif
 #endif
 
