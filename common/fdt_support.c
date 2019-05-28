@@ -471,7 +471,9 @@ int fdt_chosen(void *fdt)
 				strcat(command_line, " ");
 				strcat(command_line, p);
 			} else {
-				strcat(command_line, " unknown");
+				//strcat(command_line, " unknown");
+				e = strrchr(prop,' ');
+				memcpy(command_line,prop,e-prop);
 			}
 			#if 1
 			e = env_get("swversion");
