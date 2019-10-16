@@ -17,17 +17,39 @@
 #include <usb.h>
 #include <dwc3-uboot.h>
 #include <spl.h>
+#include <asm/gpio.h>
+#include <console.h>
+#include <sysmem.h>
+
 
 DECLARE_GLOBAL_DATA_PTR;
 
 #define RK3399_CPUID_OFF  0x7
 #define RK3399_CPUID_LEN  0x10
 
+void set_v12_en(void)
+{
+	int gpio = 99; //GPIO3_A3 (V12_EN)
+	int rett = gpio_request(gpio, "V12_EN");
+	if (rett<0) {
+		printf("%s: gpio_request failed for gpio %d\n",
+			 __func__, gpio);
+		return;
+	} else {
+		gpio_direction_output(gpio, 1);
+		gpio_set_value(gpio,1);
+	}
+	gpio_free(gpio);
+}
+EXPORT_SYMBOL_GPL(set_v12_en);
+
 int rk_board_init(void)
 {
 	struct udevice *pinctrl, *regulator;
 	int ret;
-
+#ifdef CONFIG_RK_SGI_DMSSA53
+	set_v12_en();
+#endif
 	/*
 	 * The PWM does not have decicated interrupt number in dts and can
 	 * not get periph_id by pinctrl framework, so let's init them here.

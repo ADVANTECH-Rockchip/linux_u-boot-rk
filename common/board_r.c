@@ -633,14 +633,17 @@ static int initr_bbmii(void)
 #ifdef CONFIG_CMD_NET
 static int initr_net(void)
 {
+#ifndef CONFIG_RK_SGI_DMSSA53
 	puts("Net:   ");
 	eth_initialize();
 #if defined(CONFIG_RESET_PHY_R)
 	debug("Reset Ethernet PHY\n");
 	reset_phy();
 #endif
+#endif
 	return 0;
 }
+
 #endif
 
 #ifdef CONFIG_POST

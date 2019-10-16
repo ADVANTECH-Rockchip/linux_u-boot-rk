@@ -314,6 +314,11 @@ config TPL_STACK
 
 endif
 
+config RK_SGI_DMSSA53
+	bool "Support Rockchip RK3399 DMSSA53"
+	help
+	  Support Rockchip RK3399 DMSSA53
+
 config ROCKCHIP_RK3399
 	bool "Support Rockchip RK3399"
 	select ARM64
