@@ -24,6 +24,9 @@ config PLAT_USM110A2_2G
 config PLAT_USC1XXA1_2G
 	bool "Support rk3288 usc1xxa101-2 2G"
 
+config PLAT_EBCRB04A1_2G
+	bool "Support rk3288 ebcrb04a101-1 2G"
+
 endchoice
 
 config SYS_BOARD
@@ -57,6 +60,13 @@ if PLAT_USC1XXA1_2G
 
 config SYS_CONFIG_NAME
 	default "usc1xx_rk3288"
+
+endif
+
+if PLAT_EBCRB04A1_2G
+
+config SYS_CONFIG_NAME
+	default "ebcrb04_rk3288"
 
 endif
 
