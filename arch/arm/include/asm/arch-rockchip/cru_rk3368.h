@@ -57,6 +57,14 @@ check_member(rk3368_cru, emmc_con[1], 0x41c);
 
 struct rk3368_clk_priv {
 	struct rk3368_cru *cru;
+	ulong armlclk_hz;
+	ulong armlclk_enter_hz;
+	ulong armlclk_init_hz;
+	ulong armbclk_hz;
+	ulong armbclk_enter_hz;
+	ulong armbclk_init_hz;
+	bool sync_kernel;
+	bool set_armclk_rate;
 };
 
 enum {
@@ -121,6 +129,12 @@ enum {
 	CLK_PERI_PLL_SEL_MASK		= 1 << CLK_PERI_PLL_SEL_SHIFT,
 	ACLK_PERI_DIV_CON_SHIFT		= 0,
 	ACLK_PERI_DIV_CON_MASK		= 0x1f,
+
+	/* CLKSEL10CON */
+	CLK_CRYPTO_DIV_CON_SHIFT	= 14,
+	CLK_CRYPTO_DIV_CON_MASK		= 0x3 << CLK_CRYPTO_DIV_CON_SHIFT,
+	PCLK_ALIVE_DIV_CON_SHIFT	= 8,
+	PCLK_ALIVE_DIV_CON_MASK		= 0x1f << PCLK_ALIVE_DIV_CON_SHIFT,
 
 	/* CLKSEL12_CON */
 	MCU_STCLK_DIV_SHIFT		= 8,

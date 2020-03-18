@@ -287,7 +287,7 @@ static int rockchip_drm_tve_init(struct display_state *state)
 	}
 #endif
 
-	if (!fdt_device_is_available(gd->fdt_blob, node)) {
+	if (!fdtdec_get_is_enabled(gd->fdt_blob, node)) {
 		printf("tve is disabled\n");
 		goto err;
 	}
@@ -403,7 +403,7 @@ static int rockchip_drm_tve_enable(struct display_state *state)
 
 #ifdef CONFIG_ROCKCHIP_INNO_HDMI_PHY
 	/* set inno hdmi phy clk. */
-	rockchip_phy_set_pll(state, 27000000);
+	rockchip_phy_set_pll(conn_state->phy, 27000000);
 #endif
 	if (mode->vdisplay == 576)
 		tve_type = TVOUT_CVBS_PAL;

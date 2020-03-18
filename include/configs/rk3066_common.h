@@ -13,7 +13,7 @@
 #define CONFIG_SKIP_LOWLEVEL_INIT_ONLY
 #define CONFIG_SYS_MAXARGS		16
 #define CONFIG_BAUDRATE			115200
-#define CONFIG_SYS_MALLOC_LEN		(64 << 20)
+#define CONFIG_SYS_MALLOC_LEN		(32 << 20)
 #define CONFIG_SYS_CBSIZE		256
 
 #define CONFIG_SYS_SDRAM_BASE		0x60000000
@@ -57,7 +57,6 @@
 #define CONFIG_SYS_NAND_U_BOOT_DST	CONFIG_SYS_TEXT_BASE
 #define CONFIG_SYS_NAND_U_BOOT_SIZE	0x80000
 #define CONFIG_EXTRA_ENV_SETTINGS ROCKCHIP_DEVICE_SETTINGS
-#define CONFIG_MTD_DEVICE
 #endif
 
 #include <config_distro_defaults.h>
@@ -66,15 +65,14 @@
 
 #define CONFIG_USB_FUNCTION_MASS_STORAGE
 
-#define CONFIG_MTD_DEVICE
 #define MTDIDS_DEFAULT			"nand0=rockchip-nand.0"
 
 #define ENV_MEM_LAYOUT_SETTINGS \
 	"scriptaddr=0x60000000\0" \
 	"pxefile_addr_r=0x60100000\0" \
-	"fdt_addr_r=0x61f00000\0" \
+	"fdt_addr_r=0x68300000\0" \
 	"kernel_addr_r=0x62000000\0" \
-	"ramdisk_addr_r=0x64000000\0"
+	"ramdisk_addr_r=0x6a200000\0"
 
 #include <config_distro_bootcmd.h>
 

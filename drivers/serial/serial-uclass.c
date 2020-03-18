@@ -54,6 +54,23 @@ static int serial_check_stdout(const void *blob, struct udevice **devp)
 	}
 	if (node < 0)
 		node = fdt_path_offset(blob, "console");
+
+	if (gd && gd->serial.using_pre_serial) {
+		const char *serial_path;
+		char serial[12];
+
+		snprintf(serial, 12, "serial%d", gd->serial.id);
+		serial_path = fdt_get_alias(blob, serial);
+		if (serial_path) {
+			debug("Find alias %s, path: %s\n", serial, serial_path);
+			node = fdt_path_offset(blob, serial_path);
+			if (node < 0)
+				printf("Can't find %s by path\n", serial);
+		} else {
+			printf("Can't find alias %s\n", serial);
+		}
+	}
+
 	if (!uclass_get_device_by_of_offset(UCLASS_SERIAL, node, devp))
 		return 0;
 
@@ -184,6 +201,14 @@ static int __serial_tstc(struct udevice *dev)
 	return 1;
 }
 
+static void __serial_clear(struct udevice *dev)
+{
+	struct dm_serial_ops *ops = serial_get_ops(dev);
+
+	if (ops->clear)
+		ops->clear(dev);
+}
+
 #if CONFIG_IS_ENABLED(SERIAL_RX_BUFFER)
 static int _serial_tstc(struct udevice *dev)
 {
@@ -260,6 +285,14 @@ void serial_setbrg(void)
 	ops = serial_get_ops(gd->cur_serial_dev);
 	if (ops->setbrg)
 		ops->setbrg(gd->cur_serial_dev, gd->baudrate);
+}
+
+void serial_clear(void)
+{
+	if (!gd->cur_serial_dev)
+		return;
+
+	__serial_clear(gd->cur_serial_dev);
 }
 
 void serial_stdio_init(void)

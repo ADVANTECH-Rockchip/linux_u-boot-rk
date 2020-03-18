@@ -8,8 +8,9 @@
 #include <common.h>
 #include <errno.h>
 #include <image.h>
-#include <libfdt.h>
+#include <linux/libfdt.h>
 #include <spl.h>
+#include <malloc.h>
 
 #ifndef CONFIG_SYS_BOOTM_LEN
 #define CONFIG_SYS_BOOTM_LEN	(64 << 20)
@@ -196,6 +197,11 @@ static int spl_load_fit_image(struct spl_load_info *info, ulong sector,
 			return -ENOENT;
 
 		load_ptr = (load_addr + align_len) & ~align_len;
+#if  defined(CONFIG_ARCH_ROCKCHIP)
+		if ((load_ptr < CONFIG_SYS_SDRAM_BASE) ||
+		     (load_ptr >= CONFIG_SYS_SDRAM_BASE + SDRAM_MAX_SIZE))
+			load_ptr = (ulong)memalign(ARCH_DMA_MINALIGN, len);
+#endif
 		length = len;
 
 		overhead = get_aligned_image_overhead(info, offset);

@@ -835,6 +835,7 @@
 #define RK3036_SYS_CTRL			0x00
 #define RK3036_DSP_CTRL0		0x04
 #define RK3036_DSP_CTRL1		0x08
+#define RK3036_INT_SCALER		0x0c
 #define RK3036_INT_STATUS		0x10
 #define RK3036_ALPHA_CTRL		0x14
 #define RK3036_WIN0_COLOR_KEY		0x18
@@ -959,4 +960,9 @@
 #define PX30_AFBCD0_AXI_CTRL			0x00250
 #define PX30_GRF_PD_VO_CON1			0x00438
 /* px30 register definition end */
+
+/* rk1808 register definition start*/
+#define RK1808_GRF_PD_VO_CON1			0x00000444
+/* rk1808 register definition end*/
+
 #endif /* _ROCKCHIP_VOP_REG_H */

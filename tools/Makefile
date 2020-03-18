@@ -57,15 +57,30 @@ mkenvimage-objs := mkenvimage.o os_support.o lib/crc32.o
 hostprogs-y += dumpimage mkimage
 hostprogs-$(CONFIG_FIT_SIGNATURE) += fit_info fit_check_sign
 
+# Rockchip pack tools
+ifdef CONFIG_ARCH_ROCKCHIP
+hostprogs-y += boot_merger
+hostprogs-y += trust_merger
+hostprogs-y += loaderimage
+hostprogs-y += resource_tool
+hostprogs-y += checksum
+
+boot_merger-objs := rockchip/boot_merger.o rockchip/sha2.o lib/sha256.o
+trust_merger-objs := rockchip/trust_merger.o rockchip/sha2.o lib/sha256.o
+loaderimage-objs := rockchip/loaderimage.o rockchip/sha.o lib/sha256.o rockchip/crc32_rk.o
+resource_tool-objs := rockchip/resource_tool.o
+checksum-objs := rockchip/checksum.o rockchip/crc32_rk.o
+endif
+
 FIT_SIG_OBJS-$(CONFIG_FIT_SIGNATURE) := common/image-sig.o
 
 # The following files are synced with upstream DTC.
 # Use synced versions from scripts/dtc/libfdt/.
-LIBFDT_SRCS_SYNCED := fdt.c fdt_wip.c fdt_sw.c fdt_strerror.c fdt_empty_tree.c \
-		      fdt_addresses.c fdt_overlay.c
+LIBFDT_SRCS_SYNCED := fdt.c fdt_wip.c fdt_sw.c fdt_rw.c \
+		fdt_strerror.c fdt_empty_tree.c fdt_addresses.c fdt_overlay.c
 # The following files are locally modified for U-Boot (unfotunately).
 # Use U-Boot own versions from lib/libfdt/.
-LIBFDT_SRCS_UNSYNCED := fdt_ro.c fdt_rw.c fdt_region.c
+LIBFDT_SRCS_UNSYNCED := fdt_ro.c fdt_region.c
 
 LIBFDT_OBJS := $(addprefix libfdt/, $(patsubst %.c, %.o, $(LIBFDT_SRCS_SYNCED))) \
 	       $(addprefix lib/libfdt/, $(patsubst %.c, %.o, $(LIBFDT_SRCS_UNSYNCED)))
@@ -238,9 +253,9 @@ endif # !LOGO_BMP
 # Define __KERNEL_STRICT_NAMES to prevent typedef overlaps
 # Define _GNU_SOURCE to obtain the getline prototype from stdio.h
 #
-HOST_EXTRACFLAGS += -include $(srctree)/include/libfdt_env.h \
+HOST_EXTRACFLAGS += -include $(srctree)/include/compiler.h \
 		$(patsubst -I%,-idirafter%, $(filter -I%, $(UBOOTINCLUDE))) \
-		-I$(srctree)/lib/libfdt \
+		-I$(srctree)/scripts/dtc/libfdt \
 		-I$(srctree)/tools \
 		-DUSE_HOSTCC \
 		-D__KERNEL_STRICT_NAMES \

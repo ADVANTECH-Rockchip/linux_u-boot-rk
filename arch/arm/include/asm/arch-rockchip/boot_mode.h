@@ -9,6 +9,10 @@
 #define BOOT_LOADER		(REBOOT_FLAG + 1)
 /* enter recovery */
 #define BOOT_RECOVERY		(REBOOT_FLAG + 3)
+/* reboot by panic */
+#define BOOT_PANIC		(REBOOT_FLAG + 7)
+/* reboot by watchdog */
+#define BOOT_WATCHDOG		(REBOOT_FLAG + 8)
 /* enter fastboot mode */
 #define BOOT_FASTBOOT		(REBOOT_FLAG + 9)
 /* enter charging mode */
@@ -20,7 +24,7 @@
 
 #ifndef __ASSEMBLY__
 int setup_boot_mode(void);
-void devtype_num_envset(void);
+void boot_devtype_init(void);
 #endif
 
 #endif

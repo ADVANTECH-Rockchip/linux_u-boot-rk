@@ -233,7 +233,8 @@ config CONSOLE_RECORD
 config CONSOLE_RECORD_OUT_SIZE
 	hex "Output buffer size"
 	depends on CONSOLE_RECORD
-	default 0x400 if CONSOLE_RECORD
+	default 0x400 if CONSOLE_RECORD && !ARCH_ROCKCHIP
+	default 0x2000 if CONSOLE_RECORD && ARCH_ROCKCHIP
 	help
 	  Set the size of the console output buffer. When this fills up, no
 	  more data will be recorded until some is removed. The buffer is
@@ -248,6 +249,16 @@ config CONSOLE_RECORD_IN_SIZE
 	  tstc() and getc() will use this in preference to real device input.
 	  The buffer is allocated immediately after the malloc() region is
 	  ready.
+
+config CONSOLE_DISABLE_CTRLC
+	bool "disable ctrlc"
+	help
+	  This disable ctrl+c when CONFIG_BOOTDELAY is 0.
+
+config DISABLE_CONSOLE
+	bool "disable console in & out"
+	help
+	 This disable console in & out.
 
 config IDENT_STRING
 	string "Board specific string to be added to uboot version string"
@@ -570,6 +581,13 @@ config BOARD_EARLY_INIT_F
 	  Note that the normal serial console is not yet set up, but the
 	  debug UART will be available if enabled.
 
+config BOARD_EARLY_INIT_R
+	bool "Call board-specific init after relocation"
+	help
+	  Some boards need to perform initialisation as directly after
+	  relocation. With this option, U-Boot calls board_early_init_r()
+	  in the post-relocation init sequence.
+
 endmenu
 config ANDROID_BOOTLOADER
 	bool "Support for Android Bootloader boot flow"
@@ -594,6 +612,13 @@ config ANDROID_AB
 	  allows a bootloader to try a new version of the system but roll back
 	  to previous version if the new one didn't boot all the way.
 
+config ANDROID_WRITE_KEYBOX
+	bool "Support Write Keybox"
+	default y
+	depends on OPTEE_CLIENT
+	help
+	  This enable support write keybox to secure storage.
+
 config ANDROID_AVB
 	bool"Support Android Verified Boot"
 	default n
@@ -603,11 +628,47 @@ config ANDROID_AVB
 	  to verify the boot images. The vbmeta must be matched with images,
 	  if not, verify failed.
 
+config ANDROID_KEYMASTER_CA
+	bool "Support Keymaster CA"
+	default y
+	depends on OPTEE_CLIENT
+	help
+	 This enable support read/write data in keymaster.
+
 config ANDROID_BOOT_IMAGE
 	bool "Enable support for Android Boot Images"
 	help
 	  This enables support for booting images which use the Android
 	  image format header.
+
+config ANDROID_BOOT_IMAGE_SEPARATE
+	bool "Enable support for Android image separate loading"
+	depends on ANDROID_BOOT_IMAGE
+	default y
+	help
+	  This enables support for android image separate loading. With this support,
+	  we can load ramdisk/fdt/kernel separate and skip ramdisk and fdt relocation
+	  safely. It saves a lot of boot time.
+
+config ANDROID_BOOT_IMAGE_HASH
+	bool "Enable support for Android image hash verify"
+	depends on ANDROID_BOOT_IMAGE
+	select SHA1
+	help
+	  This enables support for Android image hash verify, the mkbootimg always use
+	  SHA1 for images.
+
+config HASH_ROCKCHIP_LEGACY
+	bool "Image hash with Rockchip legacy mkbootimg tool pack"
+	depends on ANDROID_BOOT_IMAGE_HASH
+	help
+	  This option enables adding more android hdr variants into image hash
+	  calculation in legacy rockchip mkbootimg tool.
+
+config SKIP_RELOCATE_UBOOT
+	bool "Skip U-Boot relocation"
+	help
+	  This enable support for skipping U-Boot relocation.
 
 menu "Security support"
 

@@ -6,6 +6,7 @@
 
 /dts-v1/;
 #include "rk3308.dtsi"
+#include "rk3308-u-boot.dtsi"
 #include <dt-bindings/input/input.h>
 #include <linux/media-bus-format.h>
 
@@ -13,11 +14,8 @@
 	model = "Rockchip RK3308 EVB";
 	compatible = "rockchip,rk3308-evb", "rockchip,rk3308";
 
-	chosen {
-		stdout-path = "serial2:1500000n8";
-	};
-
 	adc-keys0 {
+		u-boot,dm-pre-reloc;
 		compatible = "adc-keys";
 		io-channels = <&saradc 0>;
 		io-channel-names = "buttons";
@@ -25,6 +23,7 @@
 		keyup-threshold-microvolt = <1800000>;
 
 		vol-up-key {
+			u-boot,dm-pre-reloc;
 			linux,code = <KEY_VOLUMEUP>;
 			label = "volume up";
 			press-threshold-microvolt = <18000>;
@@ -32,6 +31,7 @@
 	};
 
 	adc-keys1 {
+		u-boot,dm-pre-reloc;
 		compatible = "adc-keys";
 		io-channels = <&saradc 1>;
 		io-channel-names = "buttons";
@@ -63,6 +63,7 @@
 		};
 
 		vol-up-key {
+			u-boot,dm-pre-reloc;
 			linux,code = <KEY_VOLUMEUP>;
 			label = "volume up";
 			press-threshold-microvolt = <18000>;
@@ -256,6 +257,15 @@
 		};
 	};
 
+	vbus_host: vbus-host-regulator {
+		compatible = "regulator-fixed";
+		enable-active-high;
+		gpio = <&gpio0 RK_PC5 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&usb_drv>;
+		regulator-name = "vbus_host";
+	};
+
 	vdd_log: vdd_core: vdd-core {
 		compatible = "pwm-regulator";
 		pwms = <&pwm0 0 5000 1>;
@@ -268,6 +278,12 @@
 		status = "okay";
 	};
 
+	vcc_phy: vcc-phy-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc_phy";
+		regulator-always-on;
+		regulator-boot-on;
+	};
 };
 
 &display_subsystem {
@@ -282,16 +298,25 @@
 	status = "okay";
 };
 
+&mac {
+	phy-supply = <&vcc_phy>;
+	assigned-clocks = <&cru SCLK_MAC>;
+	assigned-clock-parents = <&mac_clkin>;
+	clock_in_out = "input";
+	pinctrl-names = "default";
+	pinctrl-0 = <&rmii_pins &mac_refclk>;
+	snps,reset-gpio = <&gpio4 RK_PC0 GPIO_ACTIVE_LOW>;
+	snps,reset-active-low;
+	snps,reset-delays-us = <0 50000 50000>;
+	status = "disabled";
+};
+
 &pwm0 {
 	status = "okay";
 };
 
 &pwm1 {
 	status = "disabled";
-};
-
-&saradc {
-	status = "okay";
 };
 
 &u2phy {
@@ -353,6 +378,13 @@
 				<1 RK_PD0 RK_FUNC_GPIO &pcfg_pull_none>,
 				/* spi cs */
 				<1 RK_PD1 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+	};
+
+	usb {
+		usb_drv: usb-drv {
+			rockchip,pins =
+				<0 RK_PC5 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 	};
 };

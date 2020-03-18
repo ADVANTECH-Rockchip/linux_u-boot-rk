@@ -35,6 +35,12 @@ config SYS_HZ
 	  get_timer() must operate in milliseconds and this option must be
 	  set to 1000.
 
+config SYS_STACK_SIZE
+	hex
+	default 0x200000
+	help
+	 The system stack size.
+
 config USE_TINY_PRINTF
 	bool "Enable tiny printf() version"
 	help
@@ -93,6 +99,18 @@ config RBTREE
 config BITREVERSE
 	bool
 
+config SYSMEM
+	bool "System memory management"
+	default y
+	help
+	  This enables support for system permanent memory management.
+
+config BIDRAM
+	bool "GD board bi_dram[] memory management"
+	default y
+	help
+	  This enables support for GD board bi_dram[] memory management.
+
 source lib/dhry/Kconfig
 
 menu "Security support"
@@ -137,6 +155,14 @@ config SHA256
 	  This option enables support of hashing using SHA256 algorithm.
 	  The hash is calculated in software.
 	  The SHA256 algorithm produces a 256-bit (32-byte) hash value
+	  (digest).
+
+config SHA512
+	bool "Enable SHA512 support"
+	help
+	  This option enables support of hashing using SHA512 algorithm.
+	  The hash is calculated in software.
+	  The SHA512 algorithm produces a 512-bit (64-byte) hash value
 	  (digest).
 
 config SHA_HW_ACCEL
@@ -218,6 +244,11 @@ config ERRNO_STR
 	  corresponding text message:
 	  - if errno is null or positive number - a pointer to "Success" message
 	  - if errno is negative - a pointer to errno related message
+
+config HEXDUMP
+	bool "Enable hexdump"
+	help
+	  This enables functions for printing dumps of binary data.
 
 config OF_LIBFDT
 	bool "Enable the FDT library"
@@ -304,5 +335,4 @@ source lib/avb/libavb_atx/Kconfig
 source lib/avb/libavb_user/Kconfig
 source lib/avb/rk_avb_user/Kconfig
 source lib/optee_clientApi/Kconfig
-
 endmenu

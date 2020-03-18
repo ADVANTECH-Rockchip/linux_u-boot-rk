@@ -18,8 +18,8 @@
 
 #define CONFIG_SYS_NS16550_SERIAL
 #define CONFIG_SYS_NS16550_MEM32
-#define CONFIG_SYS_TEXT_BASE		0x61000000
-#define CONFIG_SYS_INIT_SP_ADDR		0x61100000
+#define CONFIG_SYS_TEXT_BASE		0x60200000
+#define CONFIG_SYS_INIT_SP_ADDR		0x60400000
 #define CONFIG_SYS_LOAD_ADDR		0x61800800
 #define CONFIG_SPL_TEXT_BASE		0x60000000
 
@@ -37,10 +37,7 @@
 #define SDRAM_BANK_SIZE			(512UL << 20UL)
 #define SDRAM_MAX_SIZE			0x80000000
 
-#define CONFIG_SPI_FLASH
-#define CONFIG_SPI
 #define CONFIG_SPI_FLASH_GIGADEVICE
-#define CONFIG_SF_DEFAULT_SPEED 20000000
 
 #ifndef CONFIG_SPL_BUILD
 /* usb otg */
@@ -53,9 +50,9 @@
 #define ENV_MEM_LAYOUT_SETTINGS \
 	"scriptaddr=0x60000000\0" \
 	"pxefile_addr_r=0x60100000\0" \
-	"fdt_addr_r=0x61f00000\0" \
+	"fdt_addr_r=0x68300000\0" \
 	"kernel_addr_r=0x62000000\0" \
-	"ramdisk_addr_r=0x64000000\0"
+	"ramdisk_addr_r=0x6a200000\0"
 
 #include <config_distro_bootcmd.h>
 
@@ -65,6 +62,7 @@
 	"fdt_high=0x7fffffff\0" \
 	"partitions=" PARTS_DEFAULT \
 	ENV_MEM_LAYOUT_SETTINGS \
+	RKIMG_DET_BOOTDEV \
 	BOOTENV
 #endif
 

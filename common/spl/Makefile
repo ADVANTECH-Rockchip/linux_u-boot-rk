@@ -31,8 +31,11 @@ endif
 obj-$(CONFIG_$(SPL_TPL_)UBI) += spl_ubi.o
 obj-$(CONFIG_$(SPL_TPL_)NET_SUPPORT) += spl_net.o
 obj-$(CONFIG_$(SPL_TPL_)MMC_SUPPORT) += spl_mmc.o
+obj-$(CONFIG_$(SPL_TPL_)MTD_SUPPORT) += spl_mtd_blk.o
 obj-$(CONFIG_$(SPL_TPL_)ATF) += spl_atf.o
 obj-$(CONFIG_$(SPL_TPL_)OPTEE) += spl_optee.o
+obj-$(CONFIG_$(SPL_TPL_)LOAD_RKFW) += spl_rkfw.o
+obj-$(CONFIG_$(SPL_TPL_)AB) += spl_ab.o
 obj-$(CONFIG_$(SPL_TPL_)USB_SUPPORT) += spl_usb.o
 obj-$(CONFIG_$(SPL_TPL_)FAT_SUPPORT) += spl_fat.o
 obj-$(CONFIG_$(SPL_TPL_)EXT_SUPPORT) += spl_ext.o

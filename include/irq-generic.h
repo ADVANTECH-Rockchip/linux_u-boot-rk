@@ -11,6 +11,11 @@
 #include <common.h>
 #include <dt-bindings/pinctrl/rockchip.h>
 
+#define IRQ_I(fmt, args...)	printf("IRQ: "fmt, ##args)
+#define IRQ_W(fmt, args...)	printf("IRQ Warn: "fmt, ##args)
+#define IRQ_E(fmt, args...)	printf("IRQ Err: "fmt, ##args)
+#define IRQ_D(fmt, args...)	 debug("IRQ Debug "fmt, ##args)
+
 /*
  * IRQ line status.
  *
@@ -59,16 +64,42 @@ struct irq_chip {
 	int		(*irq_get_gpio_level)(int irq);
 };
 
+/*
+ * Virtual irq chip structure
+ */
+typedef int(virq_i2c_write_t)(struct udevice *dev, uint reg, uint value);
+typedef int(virq_i2c_read_t)(struct udevice *dev, uint reg);
+
+struct virq_reg {
+	uint reg_offset;
+	uint mask;
+};
+
+struct virq_chip {
+	uint status_base;
+	uint mask_base;
+	uint irq_reg_stride;
+	uint irq_unalign_reg_idx;
+	uint irq_unalign_reg_stride;
+	int num_regs;
+	const struct virq_reg *irqs;
+	int num_irqs;
+	virq_i2c_read_t *i2c_read;
+	virq_i2c_write_t *i2c_write;
+};
+
 /* APIs for irqs */
 void irq_install_handler(int irq, interrupt_handler_t *handler, void *data);
 void irq_free_handler(int irq);
 int irq_set_irq_type(int irq, unsigned int type);
 int irq_revert_irq_type(int irq);
 int irq_handler_enable(int irq);
+int irq_handler_enable_suspend_only(int irq);
 int irq_handler_disable(int irq);
 int irq_get_gpio_level(int irq);
 int irqs_suspend(void);
 int irqs_resume(void);
+int irq_is_busy(int irq);
 int gpio_to_irq(struct gpio_desc *gpio);
 
 /*
@@ -83,10 +114,12 @@ int gpio_to_irq(struct gpio_desc *gpio);
  */
 #define GPIO_BANK_SHIFT			8
 #define RK_IRQ_GPIO(bank, pin) 		(((bank) << GPIO_BANK_SHIFT) | (pin))
+
 int hard_gpio_to_irq(unsigned gpio);
 int phandle_gpio_to_irq(u32 gpio_phandle, u32 pin);
 
-/* only irq-gpio.c can use it */
-void _generic_gpio_handle_irq(int irq);
+/* Virtual irq */
+int virq_to_irq(struct virq_chip *chip, int virq);
+int virq_add_chip(struct udevice *dev, struct virq_chip *chip, int irq);
 
 #endif /* _IRQ_GENERIC_H */

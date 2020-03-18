@@ -4,10 +4,9 @@
  * SPDX-License-Identifier:     GPL-2.0+
  */
 
-#include <asm/io.h>
-#include <irq-generic.h>
-#include "irq-gpio.h"
-#include "irq-gpio-switch.h"
+#include <dm.h>
+#include <malloc.h>
+#include "irq-internal.h"
 
 typedef enum GPIOIntType {
 	GPIOLevelLow = 0,
@@ -101,15 +100,15 @@ static void generic_gpio_handle_irq(int irq, void *data __always_unused)
 		gpio_irq_ack(bank->regbase, offset_to_bit(pin));
 
 		/*
-		 * if gpio is edge triggered, clear condition before executing
-		 * the handler so that we don't miss edges
+		 * If gpio is edge triggered, clear condition before executing
+		 * the handler, so that we don't miss next edges trigger.
 		 */
 		if (ilr & (1 << pin)) {
 			unmasked = 1;
 			gpio_irq_unmask(bank->regbase, offset_to_bit(pin));
 		}
 
-		_generic_gpio_handle_irq(gpio_irq + pin);
+		__generic_gpio_handle_irq(gpio_irq + pin);
 
 		isr &= ~(1 << pin);
 
@@ -276,6 +275,10 @@ static int gpio_irq_enable(int gpio_irq)
 
 	gpio_irq_unmask(bank->regbase, offset_to_bit(gpio));
 
+	if (bank->use_count == 0)
+		irq_handler_enable(IRQ_GPIO0 + bank->id);
+	bank->use_count++;
+
 	return 0;
 }
 
@@ -287,11 +290,18 @@ static int gpio_irq_disable(int irq)
 	if (!bank)
 		return -EINVAL;
 
+	if (bank->use_count <= 0)
+		return 0;
+
 	gpio &= GPIO_PIN_MASK;
 	if (gpio >= bank->ngpio)
 		return -EINVAL;
 
 	gpio_irq_mask(bank->regbase, offset_to_bit(gpio));
+
+	if (bank->use_count == 1)
+		irq_handler_disable(IRQ_GPIO0 + bank->id);
+	bank->use_count--;
 
 	return 0;
 }
@@ -302,17 +312,25 @@ static int gpio_irq_init(void)
 	int i = 0;
 
 	for (i = 0; i < GPIO_BANK_NUM; i++) {
+		struct udevice *dev;
+
+		dev = malloc(sizeof(*dev));
+		if (!dev)
+			return -ENOMEM;
+
 		bank = gpio_id_to_bank(i);
 		if (bank) {
+			dev->name = bank->name;
+
 			/* disable gpio pin interrupt */
 			writel(0, bank->regbase + GPIO_INTEN);
 
 			/* register gpio group irq handler */
 			irq_install_handler(IRQ_GPIO0 + bank->id,
-			(interrupt_handler_t *)generic_gpio_handle_irq, NULL);
+			(interrupt_handler_t *)generic_gpio_handle_irq, dev);
 
-			/* default enable all gpio group interrupt */
-			irq_handler_enable(IRQ_GPIO0 + bank->id);
+			/* default disable all gpio group interrupt */
+			irq_handler_disable(IRQ_GPIO0 + bank->id);
 		}
 	}
 
@@ -329,7 +347,7 @@ static struct irq_chip gpio_irq_chip = {
 	.irq_get_gpio_level = gpio_irq_get_gpio_level,
 };
 
-struct irq_chip *arch_gpio_irq_init(void)
+struct irq_chip *arch_gpio_get_irqchip(void)
 {
 	return &gpio_irq_chip;
 }

@@ -28,9 +28,17 @@
 #include <android_avb/avb_sha.h>
 #include <android_avb/avb_sysdeps.h>
 #include <android_avb/avb_util.h>
+#include <android_avb/avb_ops_user.h>
+#include <android_avb/rk_avb_ops_user.h>
+#include <malloc.h>
+#include <common.h>
+#ifdef CONFIG_DM_CRYPTO
+#include <crypto.h>
+#endif
 
 /* The most recent unlock challenge generated. */
 static uint8_t last_unlock_challenge[AVB_ATX_UNLOCK_CHALLENGE_SIZE];
+static bool last_unlock_challenge_set = false;
 
 /* Computes the SHA256 |hash| of |length| bytes of |data|. */
 static void sha256(const uint8_t* data,
@@ -64,7 +72,64 @@ static bool verify_permanent_attributes(
     const AvbAtxPermanentAttributes* attributes,
     const uint8_t expected_hash[AVB_SHA256_DIGEST_SIZE]) {
   uint8_t hash[AVB_SHA256_DIGEST_SIZE];
+#ifdef CONFIG_ROCKCHIP_PRELOADER_PUB_KEY
+#ifdef CONFIG_DM_CRYPTO
+  u32 cap = CRYPTO_MD5 | CRYPTO_SHA1 | CRYPTO_SHA256 | CRYPTO_RSA2048;
+  uint8_t rsa_hash[256] = {0};
+  uint8_t rsa_hash_revert[256] = {0};
+  unsigned int rsaResult_temp[8];
+  unsigned char rsaResult[32] = {0};
+  struct rk_pub_key pub_key;
+  struct udevice *dev;
+  rsa_key rsa_key;
+  char *temp;
+  int ret = 0;
+  int i;
 
+  memset(&pub_key, 0, sizeof(struct rk_pub_key));
+  ret = rk_avb_get_pub_key(&pub_key);
+  if (ret)
+    return false;
+
+  ret = rk_avb_get_perm_attr_cer(rsa_hash, 256);
+  if (ret) {
+    avb_error("get_perm_attr_cer error\n");
+    return false;
+  }
+
+  for (i = 0; i < 256; i++)
+    rsa_hash_revert[255-i] = rsa_hash[i];
+
+  dev = crypto_get_device(cap);
+  if (!dev) {
+    avb_error("Can't find crypto device for expected capability\n");
+    return false;
+  }
+
+  memset(&rsa_key, 0x00, sizeof(rsa_key));
+  rsa_key.algo = CRYPTO_RSA2048;
+  rsa_key.n = (u32 *)&pub_key.rsa_n;
+  rsa_key.e = (u32 *)&pub_key.rsa_e;
+#ifdef CONFIG_ROCKCHIP_CRYPTO_V1
+  rsa_key.c = (u32 *)&pub_key.rsa_c;
+#endif
+  ret = crypto_rsa_verify(dev, &rsa_key, (u8 *)rsa_hash_revert, (u8 *)rsaResult_temp);
+  if (ret) {
+    avb_error("Hardware verify error!\n");
+    return false;
+  }
+
+  temp = (char *)rsaResult_temp;
+  for (i = 0; i < 32; i++)
+    rsaResult[31-i] = temp[i];
+
+  sha256((const uint8_t*)attributes, sizeof(AvbAtxPermanentAttributes), hash);
+  if (memcmp((void*)rsaResult, (void*)hash, 32) == 0)
+    return true;
+
+  return false;
+#endif
+#else
   if (attributes->version != 1) {
     avb_error("Unsupported permanent attributes version.\n");
     return false;
@@ -75,6 +140,7 @@ static bool verify_permanent_attributes(
     return false;
   }
   return true;
+#endif
 }
 
 /* Verifies the format, key version, usage, and signature of a certificate. */
@@ -302,6 +368,7 @@ AvbIOResult avb_atx_generate_unlock_challenge(
     avb_error("Failed to generate random challenge.\n");
     return result;
   }
+  last_unlock_challenge_set = true;
   out_unlock_challenge->version = 1;
   sha256(permanent_attributes.product_id,
          AVB_ATX_PRODUCT_ID_SIZE,
@@ -380,9 +447,16 @@ AvbIOResult avb_atx_validate_unlock_credential(
     return AVB_IO_RESULT_OK;
   }
 
+  /* Hash the most recent unlock challenge. */
+  if (!last_unlock_challenge_set) {
+    avb_error("Challenge does not exist.\n");
+    return AVB_IO_RESULT_OK;
+  }
+  sha512(last_unlock_challenge, AVB_ATX_UNLOCK_CHALLENGE_SIZE, challenge_hash);
+  last_unlock_challenge_set = false;
+
   /* Verify the challenge signature. */
   algorithm_data = avb_get_algorithm_data(AVB_ALGORITHM_TYPE_SHA512_RSA4096);
-  sha512(last_unlock_challenge, AVB_ATX_UNLOCK_CHALLENGE_SIZE, challenge_hash);
   if (!avb_rsa_verify(unlock_credential->product_unlock_key_certificate
                           .signed_data.public_key,
                       AVB_ATX_PUBLIC_KEY_SIZE,

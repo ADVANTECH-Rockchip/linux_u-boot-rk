@@ -41,6 +41,7 @@ int psci_cpu_on(unsigned long cpuid, unsigned long entry_point)
 	return res.a0;
 }
 
+#ifdef CONFIG_ARM_CPU_SUSPEND
 int psci_system_suspend(unsigned long unused)
 {
 	struct arm_smccc_res res;
@@ -49,6 +50,7 @@ int psci_system_suspend(unsigned long unused)
 				  virt_to_phys(cpu_resume), 0, 0);
 	return res.a0;
 }
+#endif
 
 int sip_smc_set_suspend_mode(unsigned long ctrl,
 			     unsigned long config1,
@@ -82,6 +84,22 @@ struct arm_smccc_res sip_smc_request_share_mem(unsigned long page_num,
 
 error:
 	return res;
+}
+
+struct arm_smccc_res sip_smc_secure_reg_read(unsigned long addr_phy)
+{
+	struct arm_smccc_res res;
+
+	res = __invoke_sip_fn_smc(SIP_ACCESS_REG, 0, addr_phy, SECURE_REG_RD);
+	return res;
+}
+
+int sip_smc_secure_reg_write(unsigned long addr_phy, unsigned long val)
+{
+	struct arm_smccc_res res;
+
+	res = __invoke_sip_fn_smc(SIP_ACCESS_REG, val, addr_phy, SECURE_REG_WR);
+	return res.a0;
 }
 
 struct arm_smccc_res sip_smc_get_sip_version(void)

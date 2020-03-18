@@ -228,6 +228,16 @@ static inline int ofnode_read_s32(ofnode node, const char *propname,
 int ofnode_read_u32_default(ofnode ref, const char *propname, u32 def);
 
 /**
+ * ofnode_read_u64() - Read a 64-bit integer from a property
+ *
+ * @ref:	valid node reference to read property from
+ * @propname:	name of the property to read from
+ * @outp:	place to put value (if found)
+ * @return 0 if OK, -ve on error
+ */
+int ofnode_read_u64(ofnode node, const char *propname, u64 *outp);
+
+/**
  * ofnode_read_s32_default() - Read a 32-bit integer from a property
  *
  * @ref:	valid node reference to read property from
@@ -263,6 +273,19 @@ const char *ofnode_read_string(ofnode node, const char *propname);
  */
 int ofnode_read_u32_array(ofnode node, const char *propname,
 			  u32 *out_values, size_t sz);
+
+/**
+ * ofnode_write_u32_array() - Find and write an array of 32 bit integers
+ *
+ * @node:	valid node reference to read property from
+ * @propname:	name of the property to read
+ * @values:	pointer to update value, modified only if return value is 0
+ * @sz:		number of array elements to read
+ * @return 0 on success, -EINVAL if the property does not exist, -ENODATA
+ * if property does not have a value, and -EOVERFLOW is longer than sz.
+ */
+int ofnode_write_u32_array(ofnode node, const char *propname,
+			   u32 *values, size_t sz);
 
 /**
  * ofnode_read_bool() - read a boolean value from a property

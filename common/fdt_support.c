@@ -8,15 +8,19 @@
  */
 
 #include <common.h>
-#include <inttypes.h>
-#include <stdio_dev.h>
-#include <linux/ctype.h>
-#include <linux/types.h>
-#include <asm/global_data.h>
-#include <libfdt.h>
-#include <fdt_support.h>
 #include <exports.h>
+#include <fdt_support.h>
 #include <fdtdec.h>
+#include <inttypes.h>
+#ifdef CONFIG_MTD_BLK
+#include <mtd_blk.h>
+#endif
+#include <stdio_dev.h>
+#include <asm/arch/hotkey.h>
+#include <asm/global_data.h>
+#include <linux/ctype.h>
+#include <linux/libfdt.h>
+#include <linux/types.h>
 
 /**
  * fdt_getprop_u32_default_node - Return a node's property or a default
@@ -282,6 +286,9 @@ int fdt_chosen(void *fdt)
 	int   err;
 	int   i;
 	char  *str;		/* used to set string properties */
+	int dump;
+
+	dump = is_hotkey(HK_CMDLINE);
 
 	err = fdt_check_header(fdt);
 	if (err < 0) {
@@ -299,12 +306,16 @@ int fdt_chosen(void *fdt)
 #ifdef CONFIG_ARCH_ROCKCHIP
 		const char *bootargs;
 
-		debug("uboot bootargs: %s\n\n", str);
+		if (dump)
+			printf("## U-Boot bootargs: %s\n", str);
+
 		for (i = 0; i < ARRAY_SIZE(arr_bootargs); i++) {
 			bootargs = fdt_getprop(fdt, nodeoffset,
 					       arr_bootargs[i], NULL);
 			if (bootargs) {
-				debug("kernel %s: %s\n\n", arr_bootargs[i], bootargs);
+				if (dump)
+					printf("## Kernel %s: %s\n",
+					       arr_bootargs[i], bootargs);
 				/*
 				 * Append kernel bootargs
 				 * If use AB system, delete default "root=" which route
@@ -312,15 +323,25 @@ int fdt_chosen(void *fdt)
 				 * high priority system to boot and add its UUID
 				 * to cmdline. The format is "roo=PARTUUID=xxxx...".
 				 */
+				hotkey_run(HK_INITCALL);
 #ifdef CONFIG_ANDROID_AB
 				env_update_filter("bootargs", bootargs, "root=");
 #else
+				env_update("bootargs", bootargs);
+#endif
+#ifdef CONFIG_MTD_BLK
+				char *mtd_par_info = mtd_part_parse();
+
+				if (mtd_par_info) {
+					if (memcmp(env_get("devtype"), "mtd", 3) == 0)
+						env_update("bootargs", mtd_par_info);
+				}
+#endif
 				/*
 				 * Initrd fixup: remove unused "initrd=0x...,0x...",
 				 * this for compatible with legacy parameter.txt
 				 */
-				env_update_filter("bootargs", bootargs, "initrd=");
-#endif
+				env_delete("bootargs", "initrd=", 0);
 			}
 #endif
 		}
@@ -335,7 +356,8 @@ int fdt_chosen(void *fdt)
 		}
 	}
 
-	debug("merged bootargs: %s\n\n", env_get("bootargs"));
+	if (dump)
+		printf("## Merged bootargs: %s\n", env_get("bootargs"));
 
 	return fdt_fixup_stdout(fdt, nodeoffset);
 }

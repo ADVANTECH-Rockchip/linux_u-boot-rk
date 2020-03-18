@@ -160,7 +160,9 @@ validate_vbmeta_public_key(AvbOps *ops,
 			   size_t public_key_metadata_length,
 			   bool *out_is_trusted)
 {
-#ifdef AVB_VBMETA_PUBLIC_KEY_VALIDATE
+/* remain AVB_VBMETA_PUBLIC_KEY_VALIDATE to compatible legacy code */
+#if defined(CONFIG_AVB_VBMETA_PUBLIC_KEY_VALIDATE) || \
+    defined(AVB_VBMETA_PUBLIC_KEY_VALIDATE)
 	if (out_is_trusted) {
 		avb_atx_validate_vbmeta_public_key(ops,
 						   public_key_data,
@@ -352,6 +354,7 @@ AvbIOResult avb_read_perm_attr(AvbAtxOps *atx_ops,
 AvbIOResult avb_read_perm_attr_hash(AvbAtxOps *atx_ops,
 				    uint8_t hash[AVB_SHA256_DIGEST_SIZE])
 {
+#ifndef CONFIG_ROCKCHIP_PRELOADER_PUB_KEY
 #ifdef CONFIG_OPTEE_CLIENT
 	if (trusty_read_attribute_hash((uint32_t *)hash,
 				       AVB_SHA256_DIGEST_SIZE / 4))
@@ -359,6 +362,7 @@ AvbIOResult avb_read_perm_attr_hash(AvbAtxOps *atx_ops,
 #else
 	avb_error("Please open the macro!\n");
 	return -1;
+#endif
 #endif
 	return AVB_IO_RESULT_OK;
 }
@@ -368,6 +372,12 @@ static void avb_set_key_version(AvbAtxOps *atx_ops,
 				uint64_t key_version)
 {
 #ifdef CONFIG_OPTEE_CLIENT
+	uint64_t key_version_temp = 0;
+
+	if (trusty_read_rollback_index(rollback_index_location, &key_version_temp))
+		printf("%s: Fail to read rollback index\n", __FILE__);
+	if (key_version_temp == key_version)
+		return;
 	if (trusty_write_rollback_index(rollback_index_location, key_version))
 		printf("%s: Fail to write rollback index\n", __FILE__);
 #endif

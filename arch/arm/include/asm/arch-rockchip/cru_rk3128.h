@@ -14,6 +14,7 @@
 
 #define APLL_HZ		(600 * MHz)
 #define GPLL_HZ		(594 * MHz)
+#define CPLL_HZ		(400 * MHz)
 #define ACLK_BUS_HZ	(148500000)
 #define ACLK_PERI_HZ	(148500000)
 
@@ -21,6 +22,11 @@
 struct rk3128_clk_priv {
 	struct rk3128_cru *cru;
 	ulong gpll_hz;
+	ulong armclk_hz;
+	ulong armclk_enter_hz;
+	ulong armclk_init_hz;
+	bool sync_kernel;
+	bool set_armclk_rate;
 };
 
 struct rk3128_cru {
@@ -122,6 +128,12 @@ enum {
 	ACLK_PERI_DIV_MASK	= 0x1f << ACLK_PERI_DIV_SHIFT,
 
 	/* CRU_CLKSEL11_CON */
+	SFC_PLL_SEL_SHIFT	= 14,
+	SFC_PLL_SEL_MASK	= 3 << SFC_PLL_SEL_SHIFT,
+	SFC_PLL_SEL_CPLL	= 0,
+	SFC_PLL_SEL_GPLL,
+	SFC_CLK_DIV_SHIFT	= 8,
+	SFC_CLK_DIV_MASK	= 0x1f << SFC_CLK_DIV_SHIFT,
 	MMC0_PLL_SHIFT		= 6,
 	MMC0_PLL_MASK		= 3 << MMC0_PLL_SHIFT,
 	MMC0_SEL_APLL		= 0,
@@ -153,6 +165,8 @@ enum {
 	SARADC_DIV_CON_SHIFT	= 8,
 	SARADC_DIV_CON_MASK	= GENMASK(15, 8),
 	SARADC_DIV_CON_WIDTH	= 8,
+	CLK_CRYPTO_DIV_CON_SHIFT= 0,
+	CLK_CRYPTO_DIV_CON_MASK	= GENMASK(1, 0),
 
 	/* CRU_CLKSEL27_CON*/
 	DCLK_VOP_SEL_SHIFT	= 0,

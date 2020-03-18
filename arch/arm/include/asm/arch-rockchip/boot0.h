@@ -55,6 +55,12 @@ _start:
 .type   save_boot_params_ret, % function
 .globl	save_boot_params_ret
 save_boot_params_ret:
+	/* Init gd as null */
+#ifdef CONFIG_ARM64
+	mov	x18, #0
+#else
+	mov	r9, #0
+#endif
 	b board_init_f
 #else
 	b reset
@@ -72,6 +78,6 @@ _start:
 	ARM_VECTORS
 #endif
 
-#if defined(CONFIG_SPL_BUILD) && (CONFIG_ROCKCHIP_SPL_RESERVE_IRAM > 0)
+#if !defined(CONFIG_TPL_BUILD) && defined(CONFIG_SPL_BUILD) && (CONFIG_ROCKCHIP_SPL_RESERVE_IRAM > 0)
 	.space CONFIG_ROCKCHIP_SPL_RESERVE_IRAM	/* space for the ATF data */
 #endif

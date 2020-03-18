@@ -52,6 +52,10 @@ int avb_strcmp(const char* s1, const char* s2) {
   return strcmp(s1, s2);
 }
 
+int avb_strncmp(const char* s1, const char* s2, size_t n) {
+  return strncmp(s1, s2, n);
+}
+
 size_t avb_strlen(const char* str) {
   return strlen(str);
 }
@@ -61,7 +65,7 @@ void avb_abort(void) {
 }
 
 void avb_print(const char* message) {
-  fprintf(stderr, "%s", message);
+  printf("%s", message);
 }
 
 void avb_printv(const char* message, ...) {
@@ -70,7 +74,7 @@ void avb_printv(const char* message, ...) {
 
   va_start(ap, message);
   for (m = message; m != NULL; m = va_arg(ap, const char*)) {
-    fprintf(stderr, "%s", m);
+    printf("%s", m);
   }
   va_end(ap);
 }
