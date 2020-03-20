@@ -259,11 +259,9 @@ static unsigned int _stm32_qspi_gen_ccr(struct stm32_qspi_priv *priv)
 static void _stm32_qspi_enable_mmap(struct stm32_qspi_priv *priv,
 		struct spi_flash *flash)
 {
-	unsigned int ccr_reg;
-
-	priv->command = flash->read_opcode | CMD_HAS_ADR | CMD_HAS_DATA
+	priv->command = flash->read_cmd | CMD_HAS_ADR | CMD_HAS_DATA
 			| CMD_HAS_DUMMY;
-	priv->dummycycles = flash->read_dummy;
+	priv->dummycycles = flash->dummy_byte * 8;
 
 	unsigned int ccr_reg = _stm32_qspi_gen_ccr(priv);
 	ccr_reg |= (STM32_QSPI_CCR_MEM_MAP << STM32_QSPI_CCR_FMODE_SHIFT);

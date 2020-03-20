@@ -71,6 +71,7 @@ int adv_board_early_init(void)
 		     GPIO7C7_GPIO << GPIO7C7_SHIFT |
 		     GPIO7C6_GPIO << GPIO7C6_SHIFT);
 	} else {
+		gd->flags &= ~GD_FLG_DISABLE_CONSOLE;
 		rk_clrsetreg(&grf->gpio7ch_iomux, GPIO7C7_MASK << GPIO7C7_SHIFT |
 		     GPIO7C6_MASK << GPIO7C6_SHIFT,
 		     GPIO7C7_UART2DBG_SOUT << GPIO7C7_SHIFT |
