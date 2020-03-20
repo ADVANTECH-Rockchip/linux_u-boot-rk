@@ -11,7 +11,7 @@
 #include <errno.h>
 #include <fdtdec.h>
 #include <malloc.h>
-#include <libfdt.h>
+#include <linux/libfdt.h>
 #include <dm/device.h>
 #include <dm/device-internal.h>
 #include <dm/lists.h>
@@ -224,7 +224,12 @@ static int dm_scan_fdt_live(struct udevice *parent,
 
 	for (np = node_parent->child; np; np = np->sibling) {
 		if (pre_reloc_only &&
-		    !of_find_property(np, "u-boot,dm-pre-reloc", NULL))
+#ifdef CONFIG_USING_KERNEL_DTB
+		    (!of_find_property(np, "u-boot,dm-pre-reloc", NULL) ||
+		     !of_find_property(np, "u-boot,dm-spl", NULL)))
+#else
+		     !of_find_property(np, "u-boot,dm-pre-reloc", NULL))
+#endif
 			continue;
 		if (!of_device_is_available(np)) {
 			pr_debug("   - ignoring disabled device\n");

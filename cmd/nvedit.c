@@ -52,9 +52,10 @@ DECLARE_GLOBAL_DATA_PTR;
 	!defined(CONFIG_ENV_IS_IN_SPI_FLASH)	&& \
 	!defined(CONFIG_ENV_IS_IN_REMOTE)	&& \
 	!defined(CONFIG_ENV_IS_IN_UBI)		&& \
+	!defined(CONFIG_ENV_IS_IN_BLK_DEV)	&& \
 	!defined(CONFIG_ENV_IS_NOWHERE)
 # error Define one of CONFIG_ENV_IS_IN_{EEPROM|FLASH|MMC|FAT|EXT4|\
-NAND|NVRAM|ONENAND|SATA|SPI_FLASH|REMOTE|UBI} or CONFIG_ENV_IS_NOWHERE
+NAND|NVRAM|ONENAND|SATA|SPI_FLASH|REMOTE|UBI|BLK_DEV} or CONFIG_ENV_IS_NOWHERE
 #endif
 
 /*
@@ -658,9 +659,9 @@ int env_set_ulong(const char *varname, ulong value)
  */
 int env_set_hex(const char *varname, ulong value)
 {
-	char str[17];
+	char str[19];
 
-	sprintf(str, "%lx", value);
+	sprintf(str, "0x%lx", value);
 	return env_set(varname, str);
 }
 
@@ -1157,6 +1158,15 @@ static int do_env_delete(cmd_tbl_t *cmdtp, int flag,
 	return ret;
 }
 
+static int do_env_update(cmd_tbl_t *cmdtp, int flag,
+			 int argc, char *const argv[])
+{
+	if (argc != 3)
+		return CMD_RET_USAGE;
+
+	return env_update(argv[1], argv[2]);
+}
+
 #ifdef CONFIG_CMD_EXPORTENV
 /*
  * env export [-t | -b | -c] [-s size] addr [var ...]
@@ -1462,6 +1472,7 @@ static cmd_tbl_t cmd_env_sub[] = {
 #endif
 	U_BOOT_CMD_MKENT(default, 1, 0, do_env_default, "", ""),
 	U_BOOT_CMD_MKENT(delete, CONFIG_SYS_MAXARGS, 0, do_env_delete, "", ""),
+	U_BOOT_CMD_MKENT(update, 3, 0, do_env_update, "", ""),
 #if defined(CONFIG_CMD_EDITENV)
 	U_BOOT_CMD_MKENT(edit, 2, 0, do_env_edit, "", ""),
 #endif
@@ -1530,6 +1541,7 @@ static char env_help_text[] =
 	"default [-f] -a - [forcibly] reset default environment\n"
 	"env default [-f] var [...] - [forcibly] reset variable(s) to their default values\n"
 	"env delete [-f] var [...] - [forcibly] delete variable(s)\n"
+	"env update [name] [value] - add/append/replace variable(s)\n"
 #if defined(CONFIG_CMD_EDITENV)
 	"env edit name - edit environment variable\n"
 #endif

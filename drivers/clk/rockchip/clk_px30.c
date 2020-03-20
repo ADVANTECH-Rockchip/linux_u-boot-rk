@@ -86,6 +86,7 @@ static struct cpu_rate_table px30_cpu_rates[] = {
 	PX30_CPUCLK_RATE(1008000000, 1, 5),
 	PX30_CPUCLK_RATE(816000000, 1, 3),
 	PX30_CPUCLK_RATE(600000000, 1, 3),
+	PX30_CPUCLK_RATE(408000000, 1, 1),
 };
 
 static u8 pll_mode_shift[PLL_COUNT] = {
@@ -367,6 +368,120 @@ static ulong px30_i2c_set_clk(struct px30_clk_priv *priv, ulong clk_id, uint hz)
 	return px30_i2c_get_clk(priv, clk_id);
 }
 
+/*
+ * calculate best rational approximation for a given fraction
+ * taking into account restricted register size, e.g. to find
+ * appropriate values for a pll with 5 bit denominator and
+ * 8 bit numerator register fields, trying to set up with a
+ * frequency ratio of 3.1415, one would say:
+ *
+ * rational_best_approximation(31415, 10000,
+ *		(1 << 8) - 1, (1 << 5) - 1, &n, &d);
+ *
+ * you may look at given_numerator as a fixed point number,
+ * with the fractional part size described in given_denominator.
+ *
+ * for theoretical background, see:
+ * http://en.wikipedia.org/wiki/Continued_fraction
+ */
+static void rational_best_approximation(
+	unsigned long given_numerator, unsigned long given_denominator,
+	unsigned long max_numerator, unsigned long max_denominator,
+	unsigned long *best_numerator, unsigned long *best_denominator)
+{
+	unsigned long n, d, n0, d0, n1, d1;
+
+	n = given_numerator;
+	d = given_denominator;
+	n0 = 0;
+	d1 = 0;
+	n1 = 1;
+	d0 = 1;
+	for (;;) {
+		unsigned long t, a;
+
+		if (n1 > max_numerator || d1 > max_denominator) {
+			n1 = n0;
+			d1 = d0;
+			break;
+		}
+		if (d == 0)
+			break;
+		t = d;
+		a = n / d;
+		d = n % d;
+		n = t;
+		t = n0 + a * n1;
+		n0 = n1;
+		n1 = t;
+		t = d0 + a * d1;
+		d0 = d1;
+		d1 = t;
+	}
+	*best_numerator = n1;
+	*best_denominator = d1;
+}
+
+static ulong px30_i2s_get_clk(struct px30_clk_priv *priv, ulong clk_id)
+{
+	u32 con, fracdiv, gate;
+	u32 clk_src = GPLL_HZ / 2;
+	unsigned long m, n;
+	struct px30_cru *cru = priv->cru;
+
+	switch (clk_id) {
+	case SCLK_I2S1:
+		con = readl(&cru->clksel_con[30]);
+		fracdiv = readl(&cru->clksel_con[31]);
+		gate = readl(&cru->clkgate_con[10]);
+		m = fracdiv & CLK_I2S1_FRAC_NUMERATOR_MASK;
+		m >>= CLK_I2S1_FRAC_NUMERATOR_SHIFT;
+		n = fracdiv & CLK_I2S1_FRAC_DENOMINATOR_MASK;
+		n >>= CLK_I2S1_FRAC_DENOMINATOR_SHIFT;
+		debug("con30: 0x%x, gate: 0x%x, frac: 0x%x\n",
+		      con, gate, fracdiv);
+		break;
+	default:
+		printf("do not support this i2s bus\n");
+		return -EINVAL;
+	}
+
+	return clk_src * n / m;
+}
+
+static ulong px30_i2s_set_clk(struct px30_clk_priv *priv, ulong clk_id, uint hz)
+{
+	u32 clk_src;
+	unsigned long m, n, val;
+	struct px30_cru *cru = priv->cru;
+
+	clk_src = GPLL_HZ / 2;
+	rational_best_approximation(hz, clk_src,
+				    GENMASK(16 - 1, 0),
+				    GENMASK(16 - 1, 0),
+				    &m, &n);
+	switch (clk_id) {
+	case SCLK_I2S1:
+		rk_clrsetreg(&cru->clksel_con[30],
+			     CLK_I2S1_PLL_SEL_MASK, CLK_I2S1_PLL_SEL_GPLL);
+		rk_clrsetreg(&cru->clksel_con[30],
+			     CLK_I2S1_DIV_CON_MASK, 0x1);
+		rk_clrsetreg(&cru->clksel_con[30],
+			     CLK_I2S1_SEL_MASK, CLK_I2S1_SEL_FRAC);
+		val = m << CLK_I2S1_FRAC_NUMERATOR_SHIFT | n;
+		writel(val, &cru->clksel_con[31]);
+		rk_clrsetreg(&cru->clkgate_con[10],
+			     CLK_I2S1_OUT_MCLK_PAD_MASK,
+			     CLK_I2S1_OUT_MCLK_PAD_ENABLE);
+		break;
+	default:
+		printf("do not support this i2s bus\n");
+		return -EINVAL;
+	}
+
+	return px30_i2s_get_clk(priv, clk_id);
+}
+
 static ulong px30_nandc_get_clk(struct px30_clk_priv *priv)
 {
 	struct px30_cru *cru = priv->cru;
@@ -551,6 +666,32 @@ static ulong px30_saradc_set_clk(struct px30_clk_priv *priv, uint hz)
 	return px30_saradc_get_clk(priv);
 }
 
+static ulong px30_tsadc_get_clk(struct px30_clk_priv *priv)
+{
+	struct px30_cru *cru = priv->cru;
+	u32 div, con;
+
+	con = readl(&cru->clksel_con[54]);
+	div = con >> CLK_SARADC_DIV_CON_SHIFT & CLK_SARADC_DIV_CON_MASK;
+
+	return DIV_TO_RATE(OSC_HZ, div);
+}
+
+static ulong px30_tsadc_set_clk(struct px30_clk_priv *priv, uint hz)
+{
+	struct px30_cru *cru = priv->cru;
+	int src_clk_div;
+
+	src_clk_div = DIV_ROUND_UP(OSC_HZ, hz);
+	assert(src_clk_div - 1 <= 2047);
+
+	rk_clrsetreg(&cru->clksel_con[54],
+		     CLK_SARADC_DIV_CON_MASK,
+		     (src_clk_div - 1) << CLK_SARADC_DIV_CON_SHIFT);
+
+	return px30_tsadc_get_clk(priv);
+}
+
 static ulong px30_spi_get_clk(struct px30_clk_priv *priv, ulong clk_id)
 {
 	struct px30_cru *cru = priv->cru;
@@ -650,10 +791,13 @@ static ulong px30_vop_set_clk(struct px30_clk_priv *priv, ulong clk_id, uint hz)
 			     (src_clk_div - 1) << ACLK_VO_DIV_SHIFT);
 		break;
 	case DCLK_VOPB:
-		if (hz < PX30_VOP_PLL_LIMIT)
+		if (hz < PX30_VOP_PLL_LIMIT) {
 			src_clk_div = DIV_ROUND_UP(PX30_VOP_PLL_LIMIT, hz);
-		else
+			if (src_clk_div % 2)
+				src_clk_div = src_clk_div - 1;
+		} else {
 			src_clk_div = 1;
+		}
 		assert(src_clk_div - 1 <= 255);
 		rkclk_set_pll(&cru->pll[CPLL], &cru->mode, CPLL, hz * src_clk_div);
 		rk_clrsetreg(&cru->clksel_con[5],
@@ -669,10 +813,13 @@ static ulong px30_vop_set_clk(struct px30_clk_priv *priv, ulong clk_id, uint hz)
 			src_clk_div = npll_hz / hz;
 			assert(src_clk_div - 1 <= 255);
 		} else {
-			if (hz < PX30_VOP_PLL_LIMIT)
+			if (hz < PX30_VOP_PLL_LIMIT) {
 				src_clk_div = DIV_ROUND_UP(PX30_VOP_PLL_LIMIT, hz);
-			else
+				if (src_clk_div % 2)
+					src_clk_div = src_clk_div - 1;
+			} else {
 				src_clk_div = 1;
+			}
 			assert(src_clk_div - 1 <= 255);
 			rkclk_set_pll(&cru->pll[NPLL], &cru->mode, NPLL, hz * src_clk_div);
 		}
@@ -708,6 +855,7 @@ static ulong px30_bus_get_clk(struct px30_clk_priv *priv, ulong clk_id)
 		parent = priv->gpll_hz;
 		break;
 	case PCLK_BUS_PRE:
+	case PCLK_WDT_NS:
 		parent = px30_bus_get_clk(priv, ACLK_BUS_PRE);
 		con = readl(&cru->clksel_con[24]);
 		div = (con & BUS_PCLK_DIV_MASK) >> BUS_PCLK_DIV_SHIFT;
@@ -818,6 +966,140 @@ static ulong px30_peri_set_clk(struct px30_clk_priv *priv, ulong clk_id,
 
 	return px30_peri_get_clk(priv, clk_id);
 }
+
+#ifndef CONFIG_SPL_BUILD
+static ulong px30_crypto_get_clk(struct px30_clk_priv *priv, ulong clk_id)
+{
+	struct px30_cru *cru = priv->cru;
+	u32 div, con, parent;
+
+	switch (clk_id) {
+	case SCLK_CRYPTO:
+		con = readl(&cru->clksel_con[25]);
+		div = (con & CRYPTO_DIV_MASK) >> CRYPTO_DIV_SHIFT;
+		parent = priv->gpll_hz;
+		break;
+	case SCLK_CRYPTO_APK:
+		con = readl(&cru->clksel_con[25]);
+		div = (con & CRYPTO_APK_DIV_MASK) >> CRYPTO_APK_DIV_SHIFT;
+		parent = priv->gpll_hz;
+		break;
+	default:
+		return -ENOENT;
+	}
+
+	return DIV_TO_RATE(parent, div);
+}
+
+static ulong px30_crypto_set_clk(struct px30_clk_priv *priv, ulong clk_id,
+				 ulong hz)
+{
+	struct px30_cru *cru = priv->cru;
+	int src_clk_div;
+
+	src_clk_div = DIV_ROUND_UP(priv->gpll_hz, hz);
+	assert(src_clk_div - 1 <= 31);
+
+	/*
+	 * select gpll as crypto clock source and
+	 * set up dependent divisors for crypto clocks.
+	 */
+	switch (clk_id) {
+	case SCLK_CRYPTO:
+		rk_clrsetreg(&cru->clksel_con[25],
+			     CRYPTO_PLL_SEL_MASK | CRYPTO_DIV_MASK,
+			     CRYPTO_PLL_SEL_GPLL << CRYPTO_PLL_SEL_SHIFT |
+			     (src_clk_div - 1) << CRYPTO_DIV_SHIFT);
+		break;
+	case SCLK_CRYPTO_APK:
+		rk_clrsetreg(&cru->clksel_con[25],
+			     CRYPTO_APK_PLL_SEL_MASK | CRYPTO_APK_DIV_MASK,
+			     CRYPTO_PLL_SEL_GPLL << CRYPTO_APK_SEL_SHIFT |
+			     (src_clk_div - 1) << CRYPTO_APK_DIV_SHIFT);
+		break;
+	default:
+		printf("do not support this peri freq\n");
+		return -EINVAL;
+	}
+
+	return px30_crypto_get_clk(priv, clk_id);
+}
+
+static ulong px30_i2s1_mclk_get_clk(struct px30_clk_priv *priv, ulong clk_id)
+{
+	struct px30_cru *cru = priv->cru;
+	u32 con;
+
+	con = readl(&cru->clksel_con[30]);
+
+	if (!(con & CLK_I2S1_OUT_SEL_MASK))
+		return -ENOENT;
+
+	return 12000000;
+}
+
+static ulong px30_i2s1_mclk_set_clk(struct px30_clk_priv *priv, ulong clk_id,
+				    ulong hz)
+{
+	struct px30_cru *cru = priv->cru;
+
+	if (hz != 12000000) {
+		printf("do not support this i2s1_mclk freq\n");
+		return -EINVAL;
+	}
+
+	rk_clrsetreg(&cru->clksel_con[30], CLK_I2S1_OUT_SEL_MASK,
+		     CLK_I2S1_OUT_SEL_OSC);
+	rk_clrsetreg(&cru->clkgate_con[10], CLK_I2S1_OUT_MCLK_PAD_MASK,
+		     CLK_I2S1_OUT_MCLK_PAD_ENABLE);
+
+	return px30_i2s1_mclk_get_clk(priv, clk_id);
+}
+
+static ulong px30_mac_set_clk(struct clk *clk, uint hz)
+{
+	struct px30_clk_priv *priv = dev_get_priv(clk->dev);
+	struct px30_cru *cru = priv->cru;
+	u32 con = readl(&cru->clksel_con[22]);
+	ulong pll_rate;
+	u8 div;
+
+	if ((con >> GMAC_PLL_SEL_SHIFT) & GMAC_PLL_SEL_CPLL)
+		pll_rate = px30_clk_get_pll_rate(priv, CPLL);
+	else if ((con >> GMAC_PLL_SEL_SHIFT) & GMAC_PLL_SEL_NPLL)
+		pll_rate = px30_clk_get_pll_rate(priv, NPLL);
+	else
+		pll_rate = priv->gpll_hz;
+
+	/*default set 50MHZ for gmac*/
+	if (!hz)
+		hz = 50000000;
+
+	div = DIV_ROUND_UP(pll_rate, hz) - 1;
+	assert(div < 32);
+	rk_clrsetreg(&cru->clksel_con[22], CLK_GMAC_DIV_MASK,
+		     div << CLK_GMAC_DIV_SHIFT);
+
+	return DIV_TO_RATE(pll_rate, div);
+}
+
+static int px30_mac_set_speed_clk(struct clk *clk, uint hz)
+{
+	struct px30_clk_priv *priv = dev_get_priv(clk->dev);
+	struct px30_cru *cru = priv->cru;
+
+	if (hz != 2500000 && hz != 25000000) {
+		debug("Unsupported mac speed:%d\n", hz);
+		return -EINVAL;
+	}
+
+	rk_clrsetreg(&cru->clksel_con[23], RMII_CLK_SEL_MASK,
+		     ((hz == 2500000) ? 0 : 1) << RMII_CLK_SEL_SHIFT);
+
+	return 0;
+}
+
+#endif
 
 static int px30_clk_get_gpll_rate(ulong *rate)
 {
@@ -939,12 +1221,18 @@ static ulong px30_clk_get_rate(struct clk *clk)
 	case SCLK_I2C3:
 		rate = px30_i2c_get_clk(priv, clk->id);
 		break;
+	case SCLK_I2S1:
+		rate = px30_i2s_get_clk(priv, clk->id);
+		break;
 	case SCLK_PWM0:
 	case SCLK_PWM1:
 		rate = px30_pwm_get_clk(priv, clk->id);
 		break;
 	case SCLK_SARADC:
 		rate = px30_saradc_get_clk(priv);
+		break;
+	case SCLK_TSADC:
+		rate = px30_tsadc_get_clk(priv);
 		break;
 	case SCLK_SPI0:
 	case SCLK_SPI1:
@@ -959,12 +1247,19 @@ static ulong px30_clk_get_rate(struct clk *clk)
 	case ACLK_BUS_PRE:
 	case HCLK_BUS_PRE:
 	case PCLK_BUS_PRE:
+	case PCLK_WDT_NS:
 		rate = px30_bus_get_clk(priv, clk->id);
 		break;
 	case ACLK_PERI_PRE:
 	case HCLK_PERI_PRE:
 		rate = px30_peri_get_clk(priv, clk->id);
 		break;
+#ifndef CONFIG_SPL_BUILD
+	case SCLK_CRYPTO:
+	case SCLK_CRYPTO_APK:
+		rate = px30_crypto_get_clk(priv, clk->id);
+		break;
+#endif
 	default:
 		return -ENOENT;
 	}
@@ -1004,12 +1299,18 @@ static ulong px30_clk_set_rate(struct clk *clk, ulong rate)
 	case SCLK_I2C3:
 		ret = px30_i2c_set_clk(priv, clk->id, rate);
 		break;
+	case SCLK_I2S1:
+		ret = px30_i2s_set_clk(priv, clk->id, rate);
+		break;
 	case SCLK_PWM0:
 	case SCLK_PWM1:
 		ret = px30_pwm_set_clk(priv, clk->id, rate);
 		break;
 	case SCLK_SARADC:
 		ret = px30_saradc_set_clk(priv, rate);
+		break;
+	case SCLK_TSADC:
+		ret = px30_tsadc_set_clk(priv, rate);
 		break;
 	case SCLK_SPI0:
 	case SCLK_SPI1:
@@ -1030,6 +1331,22 @@ static ulong px30_clk_set_rate(struct clk *clk, ulong rate)
 	case HCLK_PERI_PRE:
 		ret = px30_peri_set_clk(priv, clk->id, rate);
 		break;
+#ifndef CONFIG_SPL_BUILD
+	case SCLK_CRYPTO:
+	case SCLK_CRYPTO_APK:
+		ret = px30_crypto_set_clk(priv, clk->id, rate);
+		break;
+	case SCLK_I2S1_OUT:
+		ret = px30_i2s1_mclk_set_clk(priv, clk->id, rate);
+		break;
+	case SCLK_GMAC:
+	case SCLK_GMAC_SRC:
+		ret = px30_mac_set_clk(clk, rate);
+		break;
+	case SCLK_GMAC_RMII:
+		ret = px30_mac_set_speed_clk(clk, rate);
+		break;
+#endif
 	default:
 		return -ENOENT;
 	}
@@ -1160,11 +1477,43 @@ static int px30_clk_set_phase(struct clk *clk, int degrees)
 	return ret;
 }
 
+#if CONFIG_IS_ENABLED(OF_CONTROL) && !CONFIG_IS_ENABLED(OF_PLATDATA)
+static int px30_gmac_set_parent(struct clk *clk, struct clk *parent)
+{
+	struct px30_clk_priv *priv = dev_get_priv(clk->dev);
+	struct px30_cru *cru = priv->cru;
+
+	if (parent->id == SCLK_GMAC_SRC) {
+		debug("%s: switching GAMC to SCLK_GMAC_SRC\n", __func__);
+		rk_clrsetreg(&cru->clksel_con[23], RMII_EXTCLK_SEL_MASK,
+			     RMII_EXTCLK_SEL_INT << RMII_EXTCLK_SEL_SHIFT);
+	} else {
+		debug("%s: switching GMAC to external clock\n", __func__);
+		rk_clrsetreg(&cru->clksel_con[23], RMII_EXTCLK_SEL_MASK,
+			     RMII_EXTCLK_SEL_EXT << RMII_EXTCLK_SEL_SHIFT);
+	}
+	return 0;
+}
+
+static int px30_clk_set_parent(struct clk *clk, struct clk *parent)
+{
+	switch (clk->id) {
+	case SCLK_GMAC:
+		return px30_gmac_set_parent(clk, parent);
+	default:
+		return -ENOENT;
+	}
+}
+#endif
+
 static struct clk_ops px30_clk_ops = {
 	.get_rate = px30_clk_get_rate,
 	.set_rate = px30_clk_set_rate,
 	.get_phase	= px30_clk_get_phase,
 	.set_phase	= px30_clk_set_phase,
+#if CONFIG_IS_ENABLED(OF_CONTROL) && !CONFIG_IS_ENABLED(OF_PLATDATA)
+	.set_parent	= px30_clk_set_parent,
+#endif
 };
 
 static int px30_clk_probe(struct udevice *dev)
@@ -1172,16 +1521,24 @@ static int px30_clk_probe(struct udevice *dev)
 	struct px30_clk_priv *priv = dev_get_priv(dev);
 	int ret;
 
+	priv->sync_kernel = false;
+	if (!priv->armclk_enter_hz) {
+		priv->armclk_enter_hz = px30_clk_get_pll_rate(priv, APLL);
+		priv->armclk_init_hz = priv->armclk_enter_hz;
+	}
 	if (px30_clk_get_pll_rate(priv, APLL) != APLL_HZ) {
 		ret = px30_armclk_set_clk(priv, APLL_HZ);
 		if (ret < 0)
 			printf("%s failed to set armclk rate\n", __func__);
+		priv->armclk_init_hz = APLL_HZ;
 	}
 
 	/* Process 'assigned-{clocks/clock-parents/clock-rates}' properties */
 	ret = clk_set_defaults(dev);
 	if (ret)
 		debug("%s clk_set_defaults failed %d\n", __func__, ret);
+	else
+		priv->sync_kernel = true;
 
 	if (!priv->gpll_hz) {
 		ret = px30_clk_get_gpll_rate(&priv->gpll_hz);
@@ -1495,6 +1852,7 @@ U_BOOT_DRIVER(rockchip_px30_pmucru) = {
 int soc_clk_dump(void)
 {
 	struct udevice *cru_dev, *pmucru_dev;
+	struct px30_clk_priv *priv;
 	const struct px30_clk_info *clk_dump;
 	struct clk clk;
 	unsigned long clk_count = ARRAY_SIZE(clks_dump);
@@ -1517,7 +1875,13 @@ int soc_clk_dump(void)
 		return ret;
 	}
 
-	printf("CLK:\n");
+	priv = dev_get_priv(cru_dev);
+	printf("CLK: (%s. arm: enter %lu KHz, init %lu KHz, kernel %lu%s)\n",
+	       priv->sync_kernel ? "sync kernel" : "uboot",
+	       priv->armclk_enter_hz / 1000,
+	       priv->armclk_init_hz / 1000,
+	       priv->set_armclk_rate ? priv->armclk_hz / 1000 : 0,
+	       priv->set_armclk_rate ? " KHz" : "N/A");
 	for (i = 0; i < clk_count; i++) {
 		clk_dump = &clks_dump[i];
 		if (clk_dump->name) {
@@ -1533,17 +1897,17 @@ int soc_clk_dump(void)
 			clk_free(&clk);
 			if (i == 0) {
 				if (rate < 0)
-					printf("%s %s\n", clk_dump->name,
+					printf("  %s %s\n", clk_dump->name,
 					       "unknown");
 				else
-					printf("%s %lu KHz\n", clk_dump->name,
+					printf("  %s %lu KHz\n", clk_dump->name,
 					       rate / 1000);
 			} else {
 				if (rate < 0)
-					printf("%s %s\n", clk_dump->name,
+					printf("  %s %s\n", clk_dump->name,
 					       "unknown");
 				else
-					printf("%s %lu KHz\n", clk_dump->name,
+					printf("  %s %lu KHz\n", clk_dump->name,
 					       rate / 1000);
 			}
 		}

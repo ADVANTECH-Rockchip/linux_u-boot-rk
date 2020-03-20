@@ -10,7 +10,10 @@
 #include <ram.h>
 #include <spl.h>
 #include <asm/arch/bootrom.h>
-#include <asm/arch/sdram_common.h>
+#ifdef CONFIG_ROCKCHIP_PRELOADER_ATAGS
+#include <asm/arch/rk_atags.h>
+#endif
+#include <asm/arch/sdram.h>
 #include <asm/arch-rockchip/sys_proto.h>
 #include <asm/io.h>
 
@@ -64,7 +67,10 @@ u32 spl_boot_mode(const u32 boot_device)
 
 __weak void rockchip_stimer_init(void)
 {
-#ifdef CONFIG_SYS_ARCH_TIMER
+	/* If Timer already enabled, don't re-init it */
+	u32 reg = readl(CONFIG_ROCKCHIP_STIMER_BASE + 0x10);
+	if ( reg & 0x1 )
+		return;
 #ifndef CONFIG_ARM64
 	asm volatile("mcr p15, 0, %0, c14, c0, 0"
 		     : : "r"(COUNTER_FREQUENCY));
@@ -73,7 +79,6 @@ __weak void rockchip_stimer_init(void)
 	writel(0xffffffff, CONFIG_ROCKCHIP_STIMER_BASE);
 	writel(0xffffffff, CONFIG_ROCKCHIP_STIMER_BASE + 4);
 	writel(1, CONFIG_ROCKCHIP_STIMER_BASE + 0x10);
-#endif
 }
 
 __weak int arch_cpu_init(void)
@@ -145,10 +150,7 @@ void board_init_f(ulong dummy)
 #endif
 #endif
 
-#if !defined(CONFIG_SUPPORT_TPL)
 	rockchip_stimer_init();
-	arch_cpu_init();
-#endif
 #define EARLY_UART
 #if defined(EARLY_UART) && defined(CONFIG_DEBUG_UART)
 	/*
@@ -183,6 +185,7 @@ void board_init_f(ulong dummy)
 	sdram_init();
 #endif
 
+	arch_cpu_init();
 	rk_board_init_f();
 #if CONFIG_IS_ENABLED(ROCKCHIP_BACK_TO_BROM) && !defined(CONFIG_SPL_BOARD_INIT)
 	back_to_bootrom(BROM_BOOT_NEXTSTAGE);
@@ -247,3 +250,12 @@ void spl_board_init(void)
 	return;
 }
 #endif
+
+void spl_perform_fixups(struct spl_image_info *spl_image)
+{
+#ifdef CONFIG_ROCKCHIP_PRELOADER_ATAGS
+	atags_set_bootdev_by_spl_bootdevice(spl_image->boot_device);
+#endif
+	return;
+}
+

@@ -358,6 +358,7 @@ static bool drm_mode_equal(const struct base_drm_display_mode *mode1,
 	    mode1->vsync_start == mode2->vsync_start &&
 	    mode1->vsync_end == mode2->vsync_end &&
 	    mode1->vtotal == mode2->vtotal &&
+	    mode1->picture_aspect_ratio == mode2->picture_aspect_ratio &&
 	    (mode1->flags & flags_mask) == (mode2->flags & flags_mask)) {
 		return true;
 	}
@@ -708,6 +709,8 @@ void drm_rk_selete_output(struct hdmi_edid_data *edid_data,
 		if (base_parameter.screen_list[i].type ==
 		    DRM_MODE_CONNECTOR_HDMIA) {
 			screen_info = &base_parameter.screen_list[i];
+			screen_info->mode.picture_aspect_ratio =
+				(screen_info->mode.flags & DRM_MODE_FLAG_PIC_AR_MASK) >> 19;
 			break;
 		}
 	}
@@ -789,6 +792,14 @@ const struct dw_hdmi_plat_data rk3228_hdmi_drv_data = {
 	.dev_type   = RK3228_HDMI,
 };
 
+const struct dw_hdmi_plat_data rk3368_hdmi_drv_data = {
+	.mpll_cfg   = rockchip_mpll_cfg,
+	.cur_ctr    = rockchip_cur_ctr,
+	.phy_config = rockchip_phy_config,
+	.mpll_cfg_420 = rockchip_mpll_cfg_420,
+	.dev_type   = RK3368_HDMI,
+};
+
 const struct dw_hdmi_plat_data rk3399_hdmi_drv_data = {
 	.vop_sel_bit = 6,
 	.grf_vop_sel_reg = RK3399_GRF_SOC_CON20,
@@ -807,6 +818,11 @@ static int rockchip_dw_hdmi_probe(struct udevice *dev)
 static const struct rockchip_connector rk3399_dw_hdmi_data = {
 	.funcs = &rockchip_dw_hdmi_funcs,
 	.data = &rk3399_hdmi_drv_data,
+};
+
+static const struct rockchip_connector rk3368_dw_hdmi_data = {
+	.funcs = &rockchip_dw_hdmi_funcs,
+	.data = &rk3368_hdmi_drv_data,
 };
 
 static const struct rockchip_connector rk3288_dw_hdmi_data = {
@@ -828,6 +844,9 @@ static const struct udevice_id rockchip_dw_hdmi_ids[] = {
 	{
 	 .compatible = "rockchip,rk3399-dw-hdmi",
 	 .data = (ulong)&rk3399_dw_hdmi_data,
+	}, {
+	 .compatible = "rockchip,rk3368-dw-hdmi",
+	 .data = (ulong)&rk3368_dw_hdmi_data,
 	}, {
 	 .compatible = "rockchip,rk3288-dw-hdmi",
 	 .data = (ulong)&rk3288_dw_hdmi_data,

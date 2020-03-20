@@ -252,6 +252,7 @@ int bootm_find_images(int flag, int argc, char * const argv[])
 		return 1;
 	}
 	set_working_fdt_addr((ulong)images.ft_addr);
+	lmb_reserve(&images.lmb, (ulong)images.ft_addr, (ulong)images.ft_len);
 #endif
 
 #if IMAGE_ENABLE_FIT
@@ -724,6 +725,8 @@ int do_bootm_states(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[],
 		if (images->os.os == IH_OS_LINUX)
 			fixup_silent_linux();
 #endif
+		arch_preboot_os(BOOTM_STATE_OS_PREP);
+
 		ret = boot_fn(BOOTM_STATE_OS_PREP, argc, argv, images);
 	}
 
@@ -877,8 +880,9 @@ static const void *boot_get_kernel(cmd_tbl_t *cmdtp, int flag, int argc,
 			*os_len = image_get_data_size(hdr);
 			break;
 		default:
-			printf("Wrong Image Type for %s command\n",
-			       cmdtp->name);
+			if (cmdtp)
+				printf("Wrong Image Type for %s command\n",
+				       cmdtp->name);
 			bootstage_error(BOOTSTAGE_ID_CHECK_IMAGETYPE);
 			return NULL;
 		}
@@ -926,7 +930,9 @@ static const void *boot_get_kernel(cmd_tbl_t *cmdtp, int flag, int argc,
 		break;
 #endif
 	default:
-		printf("Wrong Image Format for %s command\n", cmdtp->name);
+		if (cmdtp)
+			printf("Wrong Image Format for %s command\n",
+			       cmdtp->name);
 		bootstage_error(BOOTSTAGE_ID_FIT_KERNEL_INFO);
 		return NULL;
 	}

@@ -24,6 +24,8 @@ obj-y += boot_mode.o
 obj-y += board.o
 obj-y += chip_info.o
 obj-y += iomem.o
+obj-y += memblk.o
+obj-y += hotkey.o
 
 obj-$(CONFIG_ROCKCHIP_CRC) += rockchip_crc.o
 obj-$(CONFIG_ROCKCHIP_SMCCC) += rockchip_smccc.o
@@ -32,7 +34,8 @@ obj-$(CONFIG_ROCKCHIP_RESOURCE_IMAGE) += resource_img.o
 obj-$(CONFIG_ROCKCHIP_DEBUGGER) += rockchip_debugger.o
 endif
 
-obj-$(CONFIG_$(SPL_TPL_)RAM) += sdram_common.o
+obj-$(CONFIG_$(SPL_TPL_)RAM) += param.o
+obj-$(CONFIG_$(SPL_TPL_)RAM) += sdram.o
 
 obj-$(CONFIG_ROCKCHIP_PX30) += px30/
 obj-$(CONFIG_ROCKCHIP_RK3036) += rk3036/

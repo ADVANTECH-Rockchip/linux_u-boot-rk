@@ -203,7 +203,7 @@ struct battery_priv {
 	int		max_soc_offset;
 	int		sample_res;
 	int		res_div;
-	struct gpio_desc *dc_det;
+	struct gpio_desc dc_det;
 	int		dc_det_adc;
 	ulong		finish_chrg_base;
 	ulong		term_sig_base;
@@ -1232,7 +1232,7 @@ static int rk818_bat_get_dc_state(struct battery_priv *di)
 	if (!di->dc_is_valid)
 		return NO_CHARGER;
 
-	return dm_gpio_get_value(di->dc_det) ? DC_CHARGER : NO_CHARGER;
+	return dm_gpio_get_value(&di->dc_det) ? DC_CHARGER : NO_CHARGER;
 }
 
 static int rk818_bat_get_charger_type(struct battery_priv *di)
@@ -1665,6 +1665,13 @@ static int rk818_bat_update_temperature(struct battery_priv *di)
 	return 0;
 }
 
+static int rk818_bat_bat_is_exit(struct udevice *dev)
+{
+	struct battery_priv *di = dev_get_priv(dev);
+
+	return is_rk818_bat_exist(di);
+}
+
 static int rk818_bat_update_get_soc(struct udevice *dev)
 {
 	struct battery_priv *di = dev_get_priv(dev);
@@ -1731,6 +1738,7 @@ static bool rk818_bat_update_get_chrg_online(struct udevice *dev)
 }
 
 static struct dm_fuel_gauge_ops fg_ops = {
+	.bat_is_exist = rk818_bat_bat_is_exit,
 	.get_soc = rk818_bat_update_get_soc,
 	.get_voltage = rk818_bat_update_get_voltage,
 	.get_current = rk818_bat_update_get_current,
@@ -1813,7 +1821,7 @@ static int rk818_fg_ofdata_to_platdata(struct udevice *dev)
 				SAMPLE_RES_DIV1 : SAMPLE_RES_DIV2;
 
 	ret = gpio_request_by_name_nodev(dev_ofnode(dev), "dc_det_gpio",
-					 0, di->dc_det, GPIOD_IS_IN);
+					 0, &di->dc_det, GPIOD_IS_IN);
 	if (!ret) {
 		di->dc_is_valid = 1;
 		debug("DC is valid\n");

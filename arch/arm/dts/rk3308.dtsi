@@ -21,6 +21,8 @@
 		serial0 = &uart0;
 		serial1 = &uart1;
 		serial2 = &uart2;
+		serial3 = &uart3;
+		serial4 = &uart4;
 	};
 
 	cpus {
@@ -65,6 +67,13 @@
 		interrupt-affinity = <&cpu0>, <&cpu1>, <&cpu2>, <&cpu3>;
 	};
 
+	mac_clkin: external-mac-clock {
+		compatible = "fixed-clock";
+		clock-frequency = <50000000>;
+		clock-output-names = "mac_clkin";
+		#clock-cells = <0>;
+	};
+
 	display_subsystem: display-subsystem {
 		compatible = "rockchip,display-subsystem";
 		ports = <&vop_out>;
@@ -80,6 +89,11 @@
 				connect = <&vop_out_rgb>;
 			};
 		};
+	};
+
+	dmc: dmc@20004000 {
+		compatible = "rockchip,rk3308-dmc";
+		reg = <0x0 0xff010000 0x0 0x10000>;
 	};
 
 	psci {
@@ -181,6 +195,35 @@
 		status = "disabled";
 	};
 
+	uart3: serial@ff0d0000 {
+		compatible = "rockchip,rk3308-uart", "snps,dw-apb-uart";
+		reg = <0x0 0xff0d0000 0x0 0x100>;
+		interrupts = <GIC_SPI 21 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&cru SCLK_UART3>, <&cru PCLK_UART3>;
+		clock-names = "baudclk", "apb_pclk";
+		reg-shift = <2>;
+		reg-io-width = <4>;
+		status = "disabled";
+	};
+
+	uart4: serial@ff0e0000 {
+		compatible = "rockchip,rk3308-uart", "snps,dw-apb-uart";
+		reg = <0x0 0xff0e0000 0x0 0x100>;
+		interrupts = <GIC_SPI 22 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&cru SCLK_UART4>, <&cru PCLK_UART4>;
+		clock-names = "baudclk", "apb_pclk";
+		reg-shift = <2>;
+		reg-io-width = <4>;
+		status = "disabled";
+	};
+
+	secure_otp: secure_otp@0xff2a8000 {
+		compatible = "rockchip,rk3308-secure-otp";
+		reg = <0x0 0xff2a8000 0x0 0x4000>;
+		secure_conf = <0xff2b0004>;
+		mask_addr = <0xff540000>;
+	};
+
 	vop: vop@ff2e0000 {
 		compatible = "rockchip,rk3308-vop";
 		reg = <0x0 0xff2e0000 0x0 0x1fc>, <0x0 0xff2e0a00 0x0 0x400>;
@@ -200,6 +243,15 @@
 				remote-endpoint = <&rgb_in_vop>;
 			};
 		};
+	};
+
+	crypto: crypto@ff2f0000 {
+		compatible = "rockchip,rk3308-crypto";
+		reg = <0x0 0xff2f0000 0x0 0x4000>;
+		clock-names = "sclk_crypto", "apkclk_crypto";
+		clocks = <&cru SCLK_CRYPTO>, <&cru SCLK_CRYPTO_APK>;
+		clock-frequency = <200000000>, <300000000>;
+		status = "disabled";
 	};
 
 	pwm0: pwm@ff180000 {
@@ -409,11 +461,33 @@
 
 
 	sfc: sfc@ff4c0000 {
-		compatible = "rockchip,rksfc";
+		compatible = "rockchip,rksfc","rockchip,sfc";
 		reg = <0x0 0xff4c0000 0x0 0x4000>;
 		interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&cru SCLK_SFC>, <&cru HCLK_SFC>;
 		clock-names = "clk_sfc", "hclk_sfc";
+		status = "disabled";
+	};
+
+	mac: ethernet@ff4e0000 {
+		compatible = "rockchip,rk3308-mac";
+		reg = <0x0 0xff4e0000 0x0 0x10000>;
+		rockchip,grf = <&grf>;
+		interrupts = <GIC_SPI 64 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "macirq";
+		clocks = <&cru SCLK_MAC>, <&cru SCLK_MAC_RX_TX>,
+			 <&cru SCLK_MAC_RX_TX>, <&cru SCLK_MAC_REF>,
+			 <&cru SCLK_MAC>, <&cru ACLK_MAC>,
+			 <&cru PCLK_MAC>, <&cru SCLK_MAC_RMII>;
+		clock-names = "stmmaceth", "mac_clk_rx",
+			      "mac_clk_tx", "clk_mac_ref",
+			      "clk_mac_refout", "aclk_mac",
+			      "pclk_mac", "clk_mac_speed";
+		phy-mode = "rmii";
+		pinctrl-names = "default";
+		pinctrl-0 = <&rmii_pins &mac_refclk_12ma>;
+		resets = <&cru SRST_MAC_A>;
+		reset-names = "stmmaceth";
 		status = "disabled";
 	};
 
@@ -1017,10 +1091,19 @@
 					/* mac_mdio */
 					<1 RK_PB6 3 &pcfg_pull_none>,
 					/* mac_mdc */
-					<1 RK_PB5 3 &pcfg_pull_none>,
-					/* mac_clk */
+					<1 RK_PB5 3 &pcfg_pull_none>;
+			};
+
+			mac_refclk_12ma: mac-refclk-12ma {
+				rockchip,pins =
+					<1 RK_PB4 3 &pcfg_pull_none_12ma>;
+			};
+
+			mac_refclk: mac-refclk {
+				rockchip,pins =
 					<1 RK_PB4 3 &pcfg_pull_none>;
 			};
+
 		};
 
 		lcdc {

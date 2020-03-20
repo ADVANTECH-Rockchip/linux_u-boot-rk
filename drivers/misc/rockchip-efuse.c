@@ -16,6 +16,46 @@
 #include <linux/delay.h>
 #include <misc.h>
 
+#define T_CSB_P_S		0
+#define T_PGENB_P_S		0
+#define T_LOAD_P_S		0
+#define T_ADDR_P_S		0
+#define T_STROBE_P_S		(0 + 110) /* 1.1us */
+#define T_CSB_P_L		(0 + 110 + 1000 + 20) /* 200ns */
+#define T_PGENB_P_L		(0 + 110 + 1000 + 20)
+#define T_LOAD_P_L		(0 + 110 + 1000 + 20)
+#define T_ADDR_P_L		(0 + 110 + 1000 + 20)
+#define T_STROBE_P_L		(0 + 110 + 1000) /* 10us */
+#define T_CSB_R_S		0
+#define T_PGENB_R_S		0
+#define T_LOAD_R_S		0
+#define T_ADDR_R_S		2
+#define T_STROBE_R_S		(2 + 3)
+#define T_CSB_R_L		(2 + 3 + 3 + 3)
+#define T_PGENB_R_L		(2 + 3 + 3 + 3)
+#define T_LOAD_R_L		(2 + 3 + 3 + 3)
+#define T_ADDR_R_L		(2 + 3 + 3 + 2)
+#define T_STROBE_R_L		(2 + 3 + 3)
+
+#define T_CSB_P			0x28
+#define T_PGENB_P		0x2c
+#define T_LOAD_P		0x30
+#define T_ADDR_P		0x34
+#define T_STROBE_P		0x38
+#define T_CSB_R			0x3c
+#define T_PGENB_R		0x40
+#define T_LOAD_R		0x44
+#define T_ADDR_R		0x48
+#define T_STROBE_R		0x4c
+
+#define RK1808_USER_MODE	BIT(0)
+#define RK1808_INT_FINISH	BIT(0)
+#define RK1808_AUTO_ENB		BIT(0)
+#define RK1808_AUTO_RD		BIT(1)
+#define RK1808_A_SHIFT		16
+#define RK1808_A_MASK		0x3ff
+#define RK1808_NBYTES		4
+
 #define RK3399_A_SHIFT          16
 #define RK3399_A_MASK           0x3ff
 #define RK3399_NFUSES           32
@@ -65,46 +105,75 @@ struct rockchip_efuse_platdata {
 	struct clk *clk;
 };
 
-#if defined(DEBUG)
-static int dump_efuses(cmd_tbl_t *cmdtp, int flag,
-		       int argc, char * const argv[])
+static void rk1808_efuse_timing_init(void __iomem *base)
 {
-	/*
-	 * N.B.: This function is tailored towards the RK3399 and assumes that
-	 *       there's always 32 fuses x 32 bits (i.e. 128 bytes of data) to
-	 *       be read.
-	 */
+	static bool init;
 
-	struct udevice *dev;
-	u8 fuses[128] = {0};
-	int ret;
+	if (init)
+		return;
 
-	/* retrieve the device */
-	ret = uclass_get_device_by_driver(UCLASS_MISC,
-					  DM_GET_DRIVER(rockchip_efuse), &dev);
-	if (ret) {
-		printf("%s: no misc-device found\n", __func__);
-		return 0;
-	}
+	/* enable auto mode */
+	writel(readl(base) & (~RK1808_USER_MODE), base);
 
-	ret = misc_read(dev, 0, &fuses, sizeof(fuses));
-	if (ret) {
-		printf("%s: misc_read failed\n", __func__);
-		return 0;
-	}
+	/* setup efuse timing */
+	writel((T_CSB_P_S << 16) | T_CSB_P_L, base + T_CSB_P);
+	writel((T_PGENB_P_S << 16) | T_PGENB_P_L, base + T_PGENB_P);
+	writel((T_LOAD_P_S << 16) | T_LOAD_P_L, base + T_LOAD_P);
+	writel((T_ADDR_P_S << 16) | T_ADDR_P_L, base + T_ADDR_P);
+	writel((T_STROBE_P_S << 16) | T_STROBE_P_L, base + T_STROBE_P);
+	writel((T_CSB_R_S << 16) | T_CSB_R_L, base + T_CSB_R);
+	writel((T_PGENB_R_S << 16) | T_PGENB_R_L, base + T_PGENB_R);
+	writel((T_LOAD_R_S << 16) | T_LOAD_R_L, base + T_LOAD_R);
+	writel((T_ADDR_R_S << 16) | T_ADDR_R_L, base + T_ADDR_R);
+	writel((T_STROBE_R_S << 16) | T_STROBE_R_L, base + T_STROBE_R);
 
-	printf("efuse-contents:\n");
-	print_buffer(0, fuses, 1, 128, 16);
-
-	return 0;
+	init = true;
 }
 
-U_BOOT_CMD(
-	rockchip_dump_efuses, 1, 1, dump_efuses,
-	"Dump the content of the efuses",
-	""
-);
-#endif
+static int rockchip_rk1808_efuse_read(struct udevice *dev, int offset,
+				      void *buf, int size)
+{
+	struct rockchip_efuse_platdata *plat = dev_get_platdata(dev);
+	struct rockchip_efuse_regs *efuse =
+		(struct rockchip_efuse_regs *)plat->base;
+	unsigned int addr_start, addr_end, addr_offset, addr_len;
+	u32 out_value, status;
+	u8 *buffer;
+	int ret = 0, i = 0;
+
+	rk1808_efuse_timing_init(plat->base);
+
+	addr_start = rounddown(offset, RK1808_NBYTES) / RK1808_NBYTES;
+	addr_end = roundup(offset + size, RK1808_NBYTES) / RK1808_NBYTES;
+	addr_offset = offset % RK1808_NBYTES;
+	addr_len = addr_end - addr_start;
+
+	buffer = calloc(1, sizeof(*buffer) * addr_len * RK1808_NBYTES);
+	if (!buffer)
+		return -ENOMEM;
+
+	while (addr_len--) {
+		writel(RK1808_AUTO_RD | RK1808_AUTO_ENB |
+		       ((addr_start++ & RK1808_A_MASK) << RK1808_A_SHIFT),
+		       &efuse->auto_ctrl);
+		udelay(2);
+		status = readl(&efuse->int_status);
+		if (!(status & RK1808_INT_FINISH)) {
+			ret = -EIO;
+			goto err;
+		}
+		out_value = readl(&efuse->dout2);
+		writel(RK1808_INT_FINISH, &efuse->int_status);
+
+		memcpy(&buffer[i], &out_value, RK1808_NBYTES);
+		i += RK1808_NBYTES;
+	}
+	memcpy(buf, buffer + addr_offset, size);
+err:
+	kfree(buffer);
+
+	return ret;
+}
 
 static int rockchip_rk3399_efuse_read(struct udevice *dev, int offset,
 				      void *buf, int size)
@@ -269,6 +338,10 @@ static int rockchip_efuse_ofdata_to_platdata(struct udevice *dev)
 }
 
 static const struct udevice_id rockchip_efuse_ids[] = {
+	{
+		.compatible = "rockchip,rk1808-efuse",
+		.data = (ulong)&rockchip_rk1808_efuse_read,
+	},
 	{
 		.compatible = "rockchip,rockchip-efuse",
 		.data = (ulong)&rockchip_rk3288_efuse_read,

@@ -7,9 +7,11 @@
 #include <common.h>
 #include <asm/arch/clock.h>
 #include <asm/io.h>
+#include <dm.h>
 #include <fdtdec.h>
-#include <libfdt.h>
+#include <fdt_support.h>
 #include <syscon.h>
+#include <linux/libfdt.h>
 
 #include "../gadget/dwc2_udc_otg_priv.h"
 
@@ -67,38 +69,64 @@ static void property_enable(struct dwc2_plat_otg_data *pdata,
 	writel(val, pdata->regs_phy + reg->offset);
 }
 
+int rockchip_u2phy_vbus_detect(void)
+{
+	u32 val = 0;
+
+#ifdef CONFIG_ROCKCHIP_RK3288
+	u32 grf_base = (u32)syscon_get_first_range(ROCKCHIP_SYSCON_GRF);
+
+	val = readl(grf_base + 0x288);
+	val = (val & BIT(14)) >> 14;
+#endif
+
+	return val;
+}
+
 static int otg_phy_parse(struct dwc2_udc *dev)
 {
 	int node, phy_node;
 	u32 grf_base, grf_offset;
-	const char *mode;
-	bool matched = false;
 	const void *blob = gd->fdt_blob;
+	const fdt32_t *reg;
+	fdt_addr_t addr;
 	struct dwc2_plat_otg_data *pdata = dev->pdata;
 
 	/* Find the usb_otg node */
 	node = fdt_node_offset_by_compatible(blob, -1, "snps,dwc2");
-	while (node > 0) {
-		mode = fdt_getprop(blob, node, "dr_mode", NULL);
-		if (mode && strcmp(mode, "otg") == 0) {
-			matched = true;
-			break;
+
+#if defined(CONFIG_ROCKCHIP_RK3288)
+retry:
+#endif
+	if (node > 0) {
+		reg = fdt_getprop(blob, node, "reg", NULL);
+		if (!reg)
+			return -EINVAL;
+
+		addr = fdt_translate_address(blob, node, reg);
+		if (addr == OF_BAD_ADDR) {
+			pr_err("Not found usb_otg address\n");
+			return -EINVAL;
 		}
 
-		node = fdt_node_offset_by_compatible(blob, node, "snps,dwc2");
-	}
-
-	if (!matched) {
+#if defined(CONFIG_ROCKCHIP_RK3288)
+		if (addr != 0xff580000) {
+			node = fdt_node_offset_by_compatible(blob, node,
+							     "snps,dwc2");
+			goto retry;
+		}
+#endif
+	} else {
 		/*
 		 * With kernel dtb support, rk3288 dwc2 otg node
 		 * use the rockchip legacy dwc2 driver "dwc_otg_310"
 		 * with the compatible "rockchip,rk3288_usb20_otg".
 		 */
+#if defined(CONFIG_ROCKCHIP_RK3288)
 		node = fdt_node_offset_by_compatible(blob, -1,
 				"rockchip,rk3288_usb20_otg");
-		if (node > 0) {
-			matched = true;
-		} else {
+#endif
+		if (node < 0) {
 			pr_err("Not found usb_otg device\n");
 			return -ENODEV;
 		}

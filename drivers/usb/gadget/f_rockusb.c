@@ -8,7 +8,7 @@
 #include <asm/io.h>
 #include <asm/arch/boot_mode.h>
 #include <asm/arch/chip_info.h>
-#include <optee_include/OpteeClientInterface.h>
+#include <write_keybox.h>
 
 #ifdef CONFIG_ROCKCHIP_VENDOR_PARTITION
 #include <asm/arch/vendor.h>
@@ -42,6 +42,15 @@ static struct usb_descriptor_header *rkusb_hs_function[] = {
 	(struct usb_descriptor_header *)&rkusb_intf_desc,
 	(struct usb_descriptor_header *)&fsg_hs_bulk_in_desc,
 	(struct usb_descriptor_header *)&fsg_hs_bulk_out_desc,
+	NULL,
+};
+
+static struct usb_descriptor_header *rkusb_ss_function[] = {
+	(struct usb_descriptor_header *)&rkusb_intf_desc,
+	(struct usb_descriptor_header *)&fsg_ss_bulk_in_desc,
+	(struct usb_descriptor_header *)&fsg_ss_bulk_in_comp_desc,
+	(struct usb_descriptor_header *)&fsg_ss_bulk_out_desc,
+	(struct usb_descriptor_header *)&fsg_ss_bulk_out_comp_desc,
 	NULL,
 };
 
@@ -349,17 +358,19 @@ static int rkusb_do_vs_write(struct fsg_common *common)
 				rc = vendor_storage_write(vhead->id,
 							  (char __user *)data,
 							  vhead->size);
-				if (rc < 0)
+				if (rc < 0) {
+					curlun->sense_data = SS_WRITE_ERROR;
 					return -EIO;
+				}
 			} else {
 				/* RPMB */
-#ifdef CONFIG_OPTEE_V1
 				rc =
 				write_keybox_to_secure_storage((u8 *)data,
 							       vhead->size);
-				if (!rc)
+				if (rc < 0) {
+					curlun->sense_data = SS_WRITE_ERROR;
 					return -EIO;
-#endif
+				}
 			}
 
 			common->residue -= common->data_size;
@@ -420,11 +431,21 @@ static int rkusb_do_vs_read(struct fsg_common *common)
 			rc = vendor_storage_read(vhead->id,
 						 (char __user *)data,
 						 common->data_size);
-			if (!rc)
+			if (!rc) {
+				curlun->sense_data = SS_UNRECOVERED_READ_ERROR;
 				return -EIO;
+			}
 			vhead->size = rc;
 		} else {
 			/* RPMB */
+			rc =
+			read_raw_data_from_secure_storage((u8 *)data,
+							  common->data_size);
+			if (!rc) {
+				curlun->sense_data = SS_UNRECOVERED_READ_ERROR;
+				return -EIO;
+			}
+			vhead->size = rc;
 		}
 
 		common->residue   -= common->data_size;
@@ -454,7 +475,7 @@ static int rkusb_do_read_capacity(struct fsg_common *common,
 	 * bit[5:63}: Reserved.
 	 */
 	memset((void *)&buf[0], 0, len);
-	if (type == IF_TYPE_MMC)
+	if (type == IF_TYPE_MMC || type == IF_TYPE_SD)
 		buf[0] = BIT(0) | BIT(2) | BIT(4);
 	else
 		buf[0] = BIT(0) | BIT(4);

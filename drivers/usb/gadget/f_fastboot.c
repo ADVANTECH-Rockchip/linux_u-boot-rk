@@ -39,6 +39,9 @@
 #endif
 #include <boot_rkimg.h>
 #include <optee_include/tee_client_api.h>
+#ifdef CONFIG_FASTBOOT_OEM_UNLOCK
+#include <keymaster.h>
+#endif
 
 #define FASTBOOT_VERSION		"0.4"
 
@@ -114,6 +117,34 @@ static struct usb_endpoint_descriptor hs_ep_out = {
 	.wMaxPacketSize		= cpu_to_le16(512),
 };
 
+static struct usb_endpoint_descriptor ss_ep_in = {
+	.bLength		= USB_DT_ENDPOINT_SIZE,
+	.bDescriptorType	= USB_DT_ENDPOINT,
+	.bEndpointAddress	= USB_DIR_IN,
+	.bmAttributes		= USB_ENDPOINT_XFER_BULK,
+	.wMaxPacketSize		= cpu_to_le16(1024),
+};
+
+static struct usb_ss_ep_comp_descriptor ss_ep_in_comp_desc = {
+	.bLength		= sizeof(ss_ep_in_comp_desc),
+	.bDescriptorType	= USB_DT_SS_ENDPOINT_COMP,
+	/* .bMaxBurst		= DYNAMIC, */
+};
+
+static struct usb_endpoint_descriptor ss_ep_out = {
+	.bLength		= USB_DT_ENDPOINT_SIZE,
+	.bDescriptorType	= USB_DT_ENDPOINT,
+	.bEndpointAddress	= USB_DIR_OUT,
+	.bmAttributes		= USB_ENDPOINT_XFER_BULK,
+	.wMaxPacketSize		= cpu_to_le16(1024),
+};
+
+static struct usb_ss_ep_comp_descriptor ss_ep_out_comp_desc = {
+	.bLength		= sizeof(ss_ep_out_comp_desc),
+	.bDescriptorType	= USB_DT_SS_ENDPOINT_COMP,
+	/* .bMaxBurst		= DYNAMIC, */
+};
+
 static struct usb_interface_descriptor interface_desc = {
 	.bLength		= USB_DT_INTERFACE_SIZE,
 	.bDescriptorType	= USB_DT_INTERFACE,
@@ -138,13 +169,44 @@ static struct usb_descriptor_header *fb_hs_function[] = {
 	NULL,
 };
 
+static struct usb_descriptor_header *fb_ss_function[] = {
+	(struct usb_descriptor_header *)&interface_desc,
+	(struct usb_descriptor_header *)&ss_ep_in,
+	(struct usb_descriptor_header *)&ss_ep_in_comp_desc,
+	(struct usb_descriptor_header *)&ss_ep_out,
+	(struct usb_descriptor_header *)&ss_ep_out_comp_desc,
+	NULL,
+};
+
 static struct usb_endpoint_descriptor *
 fb_ep_desc(struct usb_gadget *g, struct usb_endpoint_descriptor *fs,
-	    struct usb_endpoint_descriptor *hs)
+	   struct usb_endpoint_descriptor *hs,
+	   struct usb_endpoint_descriptor *ss,
+	   struct usb_ss_ep_comp_descriptor *comp_desc,
+	   struct usb_ep *ep)
 {
-	if (gadget_is_dualspeed(g) && g->speed == USB_SPEED_HIGH)
-		return hs;
-	return fs;
+	struct usb_endpoint_descriptor *speed_desc = NULL;
+
+	/* select desired speed */
+	switch (g->speed) {
+	case USB_SPEED_SUPER:
+		if (gadget_is_superspeed(g)) {
+			speed_desc = ss;
+			ep->comp_desc = comp_desc;
+			break;
+		}
+		/* else: Fall trough */
+	case USB_SPEED_HIGH:
+		if (gadget_is_dualspeed(g)) {
+			speed_desc = hs;
+			break;
+		}
+		/* else: fall through */
+	default:
+		speed_desc = fs;
+	}
+
+	return speed_desc;
 }
 
 /*
@@ -301,6 +363,14 @@ static int fastboot_bind(struct usb_configuration *c, struct usb_function *f)
 		f->hs_descriptors = fb_hs_function;
 	}
 
+	if (gadget_is_superspeed(gadget)) {
+		/* Assume endpoint addresses are the same as full speed */
+		ss_ep_in.bEndpointAddress = fs_ep_in.bEndpointAddress;
+		ss_ep_out.bEndpointAddress = fs_ep_out.bEndpointAddress;
+		/* copy SS descriptors */
+		f->ss_descriptors = fb_ss_function;
+	}
+
 	s = env_get("serial#");
 	if (s)
 		g_dnl_set_serialnumber((char *)s);
@@ -363,7 +433,8 @@ static int fastboot_set_alt(struct usb_function *f,
 	debug("%s: func: %s intf: %d alt: %d\n",
 	      __func__, f->name, interface, alt);
 
-	d = fb_ep_desc(gadget, &fs_ep_out, &hs_ep_out);
+	d = fb_ep_desc(gadget, &fs_ep_out, &hs_ep_out, &ss_ep_out,
+		       &ss_ep_out_comp_desc, f_fb->out_ep);
 	ret = usb_ep_enable(f_fb->out_ep, d);
 	if (ret) {
 		puts("failed to enable out ep\n");
@@ -378,7 +449,8 @@ static int fastboot_set_alt(struct usb_function *f,
 	}
 	f_fb->out_req->complete = rx_handler_command;
 
-	d = fb_ep_desc(gadget, &fs_ep_in, &hs_ep_in);
+	d = fb_ep_desc(gadget, &fs_ep_in, &hs_ep_in, &ss_ep_in,
+		       &ss_ep_in_comp_desc, f_fb->in_ep);
 	ret = usb_ep_enable(f_fb->in_ep, d);
 	if (ret) {
 		puts("failed to enable in ep\n");
@@ -718,6 +790,10 @@ static int fb_read_var(char *cmd, char *response,
 		fb_add_string(response, chars_left, "no", NULL);
 		break;
 	}
+	case FB_IS_USERSPACE: {
+		fb_add_string(response, chars_left, "no", NULL);
+		break;
+	}
 #ifdef CONFIG_RK_AVB_LIBAVB_USER
 	case FB_HAS_COUNT: {
 		char slot_count[2];
@@ -990,6 +1066,7 @@ static const struct {
 	{ NAME_NO_ARGS("battery-voltage"), FB_BATT_VOLTAGE},
 	{ NAME_NO_ARGS("variant"), FB_VARIANT},
 	{ NAME_NO_ARGS("battery-soc-ok"), FB_BATT_SOC_OK},
+	{ NAME_NO_ARGS("is-userspace"), FB_IS_USERSPACE},
 #ifdef CONFIG_RK_AVB_LIBAVB_USER
 	/* Slots related */
 	{ NAME_NO_ARGS("slot-count"), FB_HAS_COUNT},
@@ -1670,18 +1747,19 @@ static void cb_flashing(struct usb_ep *ep, struct usb_request *req)
 static void cb_oem_perm_attr(void)
 {
 #ifdef CONFIG_RK_AVB_LIBAVB_USER
+#ifndef CONFIG_ROCKCHIP_PRELOADER_PUB_KEY
 	sha256_context ctx;
 	uint8_t digest[SHA256_SUM_LEN] = {0};
 	uint8_t digest_temp[SHA256_SUM_LEN] = {0};
 	uint8_t perm_attr_temp[PERM_ATTR_TOTAL_SIZE] = {0};
 	uint8_t flag = 0;
-
+#endif
 	if (PERM_ATTR_TOTAL_SIZE != download_bytes) {
 		printf("Permanent attribute size is not equal!\n");
 		fastboot_tx_write_str("FAILincorrect perm attribute size");
 		return;
 	}
-
+#ifndef CONFIG_ROCKCHIP_PRELOADER_PUB_KEY
 	if (rk_avb_read_perm_attr_flag(&flag)) {
 		printf("rk_avb_read_perm_attr_flag error!\n");
 		fastboot_tx_write_str("FAILperm attr read failed");
@@ -1721,7 +1799,7 @@ static void cb_oem_perm_attr(void)
 			return;
 		}
 	}
-
+#endif
 	if (rk_avb_write_permanent_attributes((uint8_t *)
 					      CONFIG_FASTBOOT_BUF_ADDR,
 					      download_bytes)) {
@@ -1732,7 +1810,7 @@ static void cb_oem_perm_attr(void)
 		fastboot_tx_write_str("FAILperm attr write failed");
 		return;
 	}
-
+#ifndef CONFIG_ROCKCHIP_PRELOADER_PUB_KEY
 	memset(digest, 0, SHA256_SUM_LEN);
 	sha256_starts(&ctx);
 	sha256_update(&ctx, (const uint8_t *)CONFIG_FASTBOOT_BUF_ADDR,
@@ -1757,9 +1835,30 @@ static void cb_oem_perm_attr(void)
 			return;
 		}
 	}
-
+#endif
 	if (rk_avb_write_perm_attr_flag(PERM_ATTR_SUCCESS_FLAG)) {
 		fastboot_tx_write_str("FAILperm attr flag write failure");
+		return;
+	}
+
+	fastboot_tx_write_str("OKAY");
+#else
+	fastboot_tx_write_str("FAILnot implemented");
+#endif
+}
+
+static void cb_oem_perm_attr_rsa_cer(void)
+{
+#ifdef CONFIG_RK_AVB_LIBAVB_USER
+	if (download_bytes != 256) {
+		printf("Permanent attribute rsahash size is not equal!\n");
+		fastboot_tx_write_str("FAILperm attribute rsahash size error");
+		return;
+	}
+
+	if (rk_avb_set_perm_attr_cer((uint8_t *)CONFIG_FASTBOOT_BUF_ADDR,
+				     download_bytes)) {
+		fastboot_tx_write_str("FAILSet perm attr cer fail!");
 		return;
 	}
 
@@ -1965,7 +2064,7 @@ static void cb_oem(struct usb_ep *ep, struct usb_request *req)
 	} else if (strncmp("at-unlock-vboot", cmd + 4, 15) == 0) {
 #ifdef CONFIG_RK_AVB_LIBAVB_USER
 		uint8_t lock_state;
-		bool out_is_trusted = true;
+		char out_is_trusted = true;
 
 		if (rk_avb_read_lock_state(&lock_state))
 			fastboot_tx_write_str("FAILlock sate read failure");
@@ -2006,6 +2105,8 @@ static void cb_oem(struct usb_ep *ep, struct usb_request *req)
 #endif
 	} else if (strncmp("fuse at-perm-attr", cmd + 4, 16) == 0) {
 		cb_oem_perm_attr();
+	} else if (strncmp("fuse at-rsa-perm-attr", cmd + 4, 25) == 0) {
+		cb_oem_perm_attr_rsa_cer();
 	} else if (strncmp("fuse at-bootloader-vboot-key", cmd + 4, 27) == 0) {
 #ifdef CONFIG_RK_AVB_LIBAVB_USER
 		sha256_context ctx;
@@ -2025,6 +2126,16 @@ static void cb_oem(struct usb_ep *ep, struct usb_request *req)
 		if (rk_avb_write_vbootkey_hash((uint8_t *)digest,
 					       SHA256_SUM_LEN)) {
 			fastboot_tx_write_str("FAILvbootkey hash write failure");
+			return;
+		}
+		fastboot_tx_write_str("OKAY");
+#else
+		fastboot_tx_write_str("FAILnot implemented");
+#endif
+	} else if (strncmp("init-ab-metadata", cmd + 4, 16) == 0) {
+#ifdef CONFIG_RK_AVB_LIBAVB_USER
+		if (rk_avb_init_ab_metadata()) {
+			fastboot_tx_write_str("FAILinit ab data fail!");
 			return;
 		}
 		fastboot_tx_write_str("OKAY");

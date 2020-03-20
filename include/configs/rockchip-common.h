@@ -20,10 +20,22 @@
 
 #define CONFIG_SYS_NS16550_MEM32
 
-#define CONFIG_NR_DRAM_BANKS		2
+#define CONFIG_NR_DRAM_BANKS		12
 
 #ifndef CONFIG_SPL_BUILD
 #include <config_distro_defaults.h>
+
+#ifdef CONFIG_CMD_RKNAND
+#define BOOTENV_SHARED_RKNAND	BOOTENV_SHARED_BLKDEV(rknand)
+#define BOOTENV_DEV_RKNAND		BOOTENV_DEV_BLKDEV
+#define BOOTENV_DEV_NAME_RKNAND	BOOTENV_DEV_NAME_BLKDEV
+#else
+#define BOOTENV_SHARED_RKNAND
+#define BOOTENV_DEV_RKNAND \
+	BOOT_TARGET_DEVICES_references_RKNAND_without_CONFIG_CMD_RKNAND
+#define BOOTENV_DEV_NAME_RKNAND \
+	BOOT_TARGET_DEVICES_references_RKNAND_without_CONFIG_CMD_RKNAND
+#endif
 
 /* First try to boot from SD (index 1), then eMMC (index 0) */
 #if CONFIG_IS_ENABLED(CMD_MMC)
@@ -32,6 +44,12 @@
 		func(MMC, mmc, 0)
 #else
 	#define BOOT_TARGET_MMC(func)
+#endif
+
+#if CONFIG_IS_ENABLED(CMD_RKNAND)
+	#define BOOT_TARGET_RKNAND(func) func(RKNAND, rknand, 0)
+#else
+	#define BOOT_TARGET_RKNAND(func)
 #endif
 
 #if CONFIG_IS_ENABLED(CMD_USB)
@@ -54,6 +72,7 @@
 
 #define BOOT_TARGET_DEVICES(func) \
 	BOOT_TARGET_MMC(func) \
+	BOOT_TARGET_RKNAND(func) \
 	BOOT_TARGET_USB(func) \
 	BOOT_TARGET_PXE(func) \
 	BOOT_TARGET_DHCP(func)
@@ -96,6 +115,12 @@
 		"setenv devtype mmc; setenv devnum 1; echo Boot from SDcard;" \
 	"elif mmc dev 0; then " \
 		"setenv devtype mmc; setenv devnum 0;" \
+	"elif mtd_blk dev 0; then " \
+		"setenv devtype mtd; setenv devnum 0;" \
+	"elif mtd_blk dev 1; then " \
+		"setenv devtype mtd; setenv devnum 1;" \
+	"elif mtd_blk dev 2; then " \
+		"setenv devtype mtd; setenv devnum 2;" \
 	"elif rknand dev 0; then " \
 		"setenv devtype rknand; setenv devnum 0;" \
 	"elif rksfc dev 0; then " \
@@ -104,11 +129,30 @@
 		"setenv devtype spinor; setenv devnum 1;" \
 	"fi; \0"
 
+#ifdef CONFIG_AVB_VBMETA_PUBLIC_KEY_VALIDATE
+#ifndef CONFIG_ANDROID_AB
+#define RKIMG_BOOTCOMMAND \
+	"boot_android ${devtype} ${devnum};" \
+	"echo AVB boot failed and enter rockusb or fastboot!;" \
+	"rockusb 0 ${devtype} ${devnum};" \
+	"fastboot usb 0;"
+#else
+/*
+ * Update images a/b and active slot with fastboot
+ * when avb+ab system boot failed.
+ * Remove rockusb since it unable to active slot.
+ */
+#define RKIMG_BOOTCOMMAND \
+	"boot_android ${devtype} ${devnum};" \
+	"echo AVB boot failed and enter fastboot!;" \
+	"fastboot usb 0;"
+#endif /* CONFIG_ANDROID_AB */
+#else /* CONFIG_AVB_VBMETA_PUBLIC_KEY_VALIDATE */
 #define RKIMG_BOOTCOMMAND \
 	"boot_android ${devtype} ${devnum};" \
 	"bootrkp;" \
 	"run distro_bootcmd;"
-
+#endif
 #endif
 
 #define CONFIG_DISPLAY_BOARDINFO_LATE

@@ -9,7 +9,7 @@
 #include <dm.h>
 #include <fdtdec.h>
 #include <fdt_support.h>
-#include <libfdt.h>
+#include <linux/libfdt.h>
 #include <dm/of_access.h>
 #include <dm/of_addr.h>
 #include <dm/ofnode.h>
@@ -54,6 +54,21 @@ int ofnode_read_s32_default(ofnode node, const char *propname, s32 def)
 	ofnode_read_u32(node, propname, (u32 *)&def);
 
 	return def;
+}
+
+int ofnode_read_u64(ofnode node, const char *propname, u64 *outp)
+{
+	assert(ofnode_valid(node));
+	debug("%s: %s: ", __func__, propname);
+
+	if (ofnode_is_np(node)) {
+		return of_property_read_u64(ofnode_to_np(node), propname, outp);
+	} else {
+		printf("%s: not implement\n", __func__);
+		return -EINVAL;
+	}
+
+	return 0;
 }
 
 bool ofnode_read_bool(ofnode node, const char *propname)
@@ -142,6 +157,21 @@ int ofnode_read_u32_array(ofnode node, const char *propname,
 		return fdtdec_get_int_array(gd->fdt_blob,
 					    ofnode_to_offset(node), propname,
 					    out_values, sz);
+	}
+}
+
+int ofnode_write_u32_array(ofnode node, const char *propname,
+			   u32 *values, size_t sz)
+{
+	assert(ofnode_valid(node));
+	debug("%s: %s: ", __func__, propname);
+
+	if (ofnode_is_np(node)) {
+		return of_write_u32_array(ofnode_to_np(node), propname,
+					 values, sz);
+	} else {
+		return fdt_setprop((void *)gd->fdt_blob, ofnode_to_offset(node),
+				   propname, values, sz);
 	}
 }
 

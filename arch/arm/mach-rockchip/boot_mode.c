@@ -8,12 +8,20 @@
 #include <adc.h>
 #include <asm/io.h>
 #include <asm/arch/boot_mode.h>
+#include <asm/arch/hotkey.h>
+#include <asm/arch/param.h>
 #include <cli.h>
 #include <dm.h>
 #include <fdtdec.h>
 #include <boot_rkimg.h>
+#include <stdlib.h>
 #include <linux/usb/phy-rockchip-inno-usb2.h>
 #include <key.h>
+#ifdef CONFIG_DM_RAMDISK
+#include <ramdisk.h>
+#endif
+#include <mmc.h>
+#include <console.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -82,39 +90,77 @@ __weak int rockchip_dnl_key_pressed(void)
 	return keyval;
 }
 
-void devtype_num_envset(void)
+void boot_devtype_init(void)
 {
+	const char *devtype_num_set = "run rkimg_bootdev";
+	char *devtype = NULL, *devnum = NULL;
 	static int done = 0;
-	int ret = 0;
+	int atags_en = 0;
+	int ret;
 
 	if (done)
 		return;
 
-	const char *devtype_num_set = "run rkimg_bootdev";
+	ret = param_parse_bootdev(&devtype, &devnum);
+	if (!ret) {
+		atags_en = 1;
+		env_set("devtype", devtype);
+		env_set("devnum", devnum);
 
+#ifdef CONFIG_DM_MMC
+		if (!strcmp("mmc", devtype))
+			mmc_initialize(gd->bd);
+#endif
+		/*
+		 * For example, the pre-loader do not have mtd device,
+		 * and pass devtype is nand. Then U-Boot can not get
+		 * dev_desc when use mtd driver to read firmware. So
+		 * test the block dev is exist or not here.
+		 *
+		 * And the devtype & devnum maybe wrong sometimes, it
+		 * is better to test first.
+		 */
+		if (blk_get_devnum_by_typename(devtype, atoi(devnum)))
+			goto finish;
+	}
+
+	/* If not find valid bootdev by atags, scan all possible */
+#ifdef CONFIG_DM_MMC
+	mmc_initialize(gd->bd);
+#endif
 	ret = run_command_list(devtype_num_set, -1, 0);
 	if (ret) {
 		/* Set default dev type/num if command not valid */
-		env_set("devtype", "mmc");
-		env_set("devnum", "0");
+		devtype = "mmc";
+		devnum = "0";
+		env_set("devtype", devtype);
+		env_set("devnum", devnum);
 	}
 
+finish:
 	done = 1;
+	printf("Bootdev%s: %s %s\n", atags_en ? "(atags)" : "",
+	       env_get("devtype"), env_get("devnum"));
 }
 
 void rockchip_dnl_mode_check(void)
 {
-	if (rockchip_dnl_key_pressed()) {
-		if (rockchip_u2phy_vbus_detect()) {
-			printf("download key pressed, entering download mode...\n");
+	/* recovery key or "ctrl+d" */
+	if (rockchip_dnl_key_pressed() ||
+	    is_hotkey(HK_ROCKUSB_DNL)) {
+		printf("download key pressed... ");
+		if (rockchip_u2phy_vbus_detect() > 0) {
+			printf("entering download mode...\n");
 			/* If failed, we fall back to bootrom download mode */
 			run_command_list("rockusb 0 ${devtype} ${devnum}", -1, 0);
 			set_back_to_bootrom_dnl_flag();
 			do_reset(NULL, 0, 0, NULL);
 		} else {
-			printf("recovery key pressed, entering recovery mode!\n");
+			printf("entering recovery mode!\n");
 			env_set("reboot_mode", "recovery");
 		}
+	} else if (is_hotkey(HK_FASTBOOT)) {
+		env_set("reboot_mode", "fastboot");
 	}
 }
 
@@ -123,7 +169,7 @@ int setup_boot_mode(void)
 	int boot_mode = BOOT_MODE_NORMAL;
 	char env_preboot[256] = {0};
 
-	devtype_num_envset();
+	boot_devtype_init();
 	rockchip_dnl_mode_check();
 #ifdef CONFIG_RKIMG_BOOTLOADER
 	boot_mode = rockchip_get_boot_mode();
@@ -152,10 +198,6 @@ int setup_boot_mode(void)
 	case BOOT_MODE_CHARGING:
 		printf("enter charging!\n");
 		env_set("preboot", "setenv preboot; charge");
-		break;
-	case BOOT_MODE_RECOVERY:
-		printf("enter Recovery mode!\n");
-		env_set("reboot_mode", "recovery");
 		break;
 	}
 

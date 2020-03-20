@@ -144,6 +144,11 @@ ulong board_init_f_alloc_reserve(ulong top);
  */
 void board_init_f_init_reserve(ulong base);
 
+/*
+ * Board-specific Platform code can init serial earlier if needed
+ */
+__weak int board_init_f_init_serial(void);
+
 /**
  * arch_setup_gd() - Set up the global_data pointer
  *
@@ -446,19 +451,11 @@ int  eeprom_write (unsigned dev_addr, unsigned offset, uchar *buffer, unsigned c
 #define eeprom_write(dev_addr, offset, buffer, cnt) ((void)-ENOSYS)
 #endif
 
-/*
- * Set this up regardless of board
- * type, to prevent errors.
- */
-#if defined(CONFIG_SPI) || !defined(CONFIG_SYS_I2C_EEPROM_ADDR)
-# define CONFIG_SYS_DEF_EEPROM_ADDR 0
-#else
-#if !defined(CONFIG_ENV_EEPROM_IS_ON_I2C)
+#if !defined(CONFIG_ENV_EEPROM_IS_ON_I2C) && defined(CONFIG_SYS_I2C_EEPROM_ADDR)
 # define CONFIG_SYS_DEF_EEPROM_ADDR CONFIG_SYS_I2C_EEPROM_ADDR
 #endif
-#endif /* CONFIG_SPI || !defined(CONFIG_SYS_I2C_EEPROM_ADDR) */
 
-#if defined(CONFIG_SPI)
+#if defined(CONFIG_MPC8XX_SPI)
 extern void spi_init_f (void);
 extern void spi_init_r (void);
 extern ssize_t spi_read	 (uchar *, int, uchar *, int);
@@ -472,6 +469,7 @@ int board_late_init (void);
 int board_postclk_init (void); /* after clocks/timebase, before env/serial */
 int board_early_init_r (void);
 void board_poweroff (void);
+void board_env_fixup(void);
 #ifdef CONFIG_TARGET_ADVANTECH_RK3288
 int adv_board_early_init(void);
 #endif
@@ -545,6 +543,7 @@ void smp_kick_all_cpus(void);
 int	serial_init   (void);
 void	serial_setbrg (void);
 void	serial_putc   (const char);
+void	serial_clear  (void);
 void	serial_putc_raw(const char);
 void	serial_puts   (const char *);
 int	serial_getc   (void);

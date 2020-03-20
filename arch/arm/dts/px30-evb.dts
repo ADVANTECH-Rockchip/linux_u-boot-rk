@@ -13,16 +13,6 @@
 	model = "Rockchip PX30 EVB";
 	compatible = "rockchip,px30-evb", "rockchip,px30";
 
-	chosen {
-		stdout-path = &uart2;
-	};
-
-	dmc: dmc@20004000 {
-		u-boot,dm-pre-reloc;
-		compatible = "rockchip,px30-dmc", "syscon";
-		reg = <0x0 0xff2a0000 0x0 0x1000>;
-	};
-
 	adc-keys {
 		u-boot,dm-pre-reloc;
 		compatible = "adc-keys";
@@ -100,8 +90,23 @@
 			248 249 250 251 252 253 254 255>;
 		default-brightness-level = <200>;
 	};
+
+	vcc_phy: vcc-phy-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc_phy";
+		regulator-always-on;
+		regulator-boot-on;
+	};
 };
 
+&gmac {
+	phy-supply = <&vcc_phy>;
+	clock_in_out = "output";
+	snps,reset-gpio = <&gpio2 13 GPIO_ACTIVE_LOW>;
+	snps,reset-active-low;
+	snps,reset-delays-us = <0 50000 50000>;
+	status = "okay";
+};
 
 &i2c0 {
 	status = "okay";
@@ -395,10 +400,9 @@
 };
 
 &emmc {
-	u-boot,dm-pre-reloc;
-	fifo-mode;
 	bus-width = <8>;
 	cap-mmc-highspeed;
+	mmc-hs200-1_8v;
 	supports-emmc;
 	disable-wp;
 	non-removable;
@@ -412,7 +416,7 @@
 	status = "okay";
 };
 
-&saradc {
+&uart2 {
 	status = "okay";
 };
 

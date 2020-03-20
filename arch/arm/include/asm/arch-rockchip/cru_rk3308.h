@@ -47,10 +47,14 @@ struct rk3308_clk_info {
 /* Private data for the clock driver - used by rockchip_get_cru() */
 struct rk3308_clk_priv {
 	struct rk3308_cru *cru;
-	ulong armclk_hz;;
+	ulong armclk_hz;
 	ulong dpll_hz;
 	ulong vpll0_hz;
 	ulong vpll1_hz;
+	ulong armclk_enter_hz;
+	ulong armclk_init_hz;
+	bool sync_kernel;
+	bool set_armclk_rate;
 };
 
 struct rk3308_cru {
@@ -165,6 +169,19 @@ enum {
 	BUS_HCLK_DIV_SHIFT	= 0,
 	BUS_HCLK_DIV_MASK	= 0x1f << BUS_HCLK_DIV_SHIFT,
 
+	/* CRU_CLK_SEL7_CON */
+	CRYPTO_APK_SEL_SHIFT	= 14,
+	CRYPTO_APK_PLL_SEL_MASK	= 3 << CRYPTO_APK_SEL_SHIFT,
+	CRYPTO_PLL_SEL_DPLL	= 0,
+	CRYPTO_PLL_SEL_VPLL0,
+	CRYPTO_PLL_SEL_VPLL1	= 0,
+	CRYPTO_APK_DIV_SHIFT	= 8,
+	CRYPTO_APK_DIV_MASK	= 0x1f << CRYPTO_APK_DIV_SHIFT,
+	CRYPTO_PLL_SEL_SHIFT	= 6,
+	CRYPTO_PLL_SEL_MASK	= 3 << CRYPTO_PLL_SEL_SHIFT,
+	CRYPTO_DIV_SHIFT	= 0,
+	CRYPTO_DIV_MASK		= 0x1f << CRYPTO_DIV_SHIFT,
+
 	/* CRU_CLK_SEL8_CON */
 	DCLK_VOP_SEL_SHIFT	= 14,
 	DCLK_VOP_SEL_MASK	= 0x3 << DCLK_VOP_SEL_SHIFT,
@@ -243,6 +260,23 @@ enum {
 	EMMC_SEL_24M,
 	EMMC_DIV_SHIFT		= 0,
 	EMMC_DIV_MASK		= 0xff << EMMC_DIV_SHIFT,
+
+	/* CRU_CLKSEL43_CON */
+	MAC_CLK_SPEED_SEL_SHIFT = 15,
+	MAC_CLK_SPEED_SEL_MASK = 1 << MAC_CLK_SPEED_SEL_SHIFT,
+	MAC_CLK_SPEED_SEL_10M = 0,
+	MAC_CLK_SPEED_SEL_100M,
+	MAC_CLK_SOURCE_SEL_SHIFT = 14,
+	MAC_CLK_SOURCE_SEL_MASK = 1 << MAC_CLK_SOURCE_SEL_SHIFT,
+	MAC_CLK_SOURCE_SEL_INTERNAL	= 0,
+	MAC_CLK_SOURCE_SEL_EXTERNAL,
+	MAC_PLL_SHIFT		= 6,
+	MAC_PLL_MASK		= 0x3 << MAC_PLL_SHIFT,
+	MAC_SEL_DPLL		= 0,
+	MAC_SEL_VPLL0,
+	MAC_SEL_VPLL1,
+	MAC_DIV_SHIFT		= 0,
+	MAC_DIV_MASK		= 0x1f << MAC_DIV_SHIFT,
 
 	/* CRU_CLK_SEL45_CON */
 	AUDIO_PCLK_DIV_SHIFT	= 8,

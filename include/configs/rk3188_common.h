@@ -24,9 +24,9 @@
 /* Bootrom will load u-boot binary to 0x60000000 once return from SPL */
 #define CONFIG_SYS_TEXT_BASE		0x60000000
 #else
-#define CONFIG_SYS_TEXT_BASE		0x60100000
+#define CONFIG_SYS_TEXT_BASE		0x60200000
 #endif
-#define CONFIG_SYS_INIT_SP_ADDR		0x60100000
+#define CONFIG_SYS_INIT_SP_ADDR		0x60400000
 #define CONFIG_SYS_LOAD_ADDR		0x60800800
 
 #define CONFIG_ROCKCHIP_MAX_INIT_SIZE	(0x8000 - 0x800)
@@ -48,10 +48,6 @@
 #define SDRAM_BANK_SIZE			(2UL << 30)
 #define SDRAM_MAX_SIZE			0x80000000
 
-#define CONFIG_SPI_FLASH
-#define CONFIG_SPI
-#define CONFIG_SF_DEFAULT_SPEED 20000000
-
 #ifndef CONFIG_SPL_BUILD
 
 /* usb mass storage */
@@ -64,9 +60,9 @@
 #define ENV_MEM_LAYOUT_SETTINGS \
 	"scriptaddr=0x60000000\0" \
 	"pxefile_addr_r=0x60100000\0" \
-	"fdt_addr_r=0x61f00000\0" \
+	"fdt_addr_r=0x68300000\0" \
 	"kernel_addr_r=0x62000000\0" \
-	"ramdisk_addr_r=0x64000000\0"
+	"ramdisk_addr_r=0x6a200000\0"
 
 #include <config_distro_bootcmd.h>
 

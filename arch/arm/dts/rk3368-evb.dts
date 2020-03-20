@@ -10,12 +10,8 @@
 #include <dt-bindings/input/input.h>
 
 / {
-	model = "Rockchip RK3399 Evaluation Board";
+	model = "Rockchip RK3368 Evaluation Board";
 	compatible = "rockchip,rk3368-evb", "rockchip,rk3368";
-
-	chosen {
-		stdout-path = "serial2:115200n8";
-	};
 };
 
 &emmc {
@@ -37,10 +33,6 @@
 
 &u2phy {
 	status = "okay";
-
-	u2phy_host: host-port {
-		status = "okay";
-	};
 };
 
 &usb_host0_ehci {
@@ -48,6 +40,14 @@
 };
 
 &usb_host0_ohci {
+	status = "okay";
+};
+
+&u2phy_host {
+	status = "okay";
+};
+
+&u2phy_otg {
 	status = "okay";
 };
 

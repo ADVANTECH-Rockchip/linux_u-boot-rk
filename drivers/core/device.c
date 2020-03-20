@@ -52,8 +52,9 @@ static int device_bind_common(struct udevice *parent, const struct driver *drv,
 
 #ifdef CONFIG_USING_KERNEL_DTB
 	if (gd->flags & GD_FLG_RELOC) {
-		/* For mmc and nand, just update from kernel dtb instead bind again*/
-		if (drv->id == UCLASS_MMC || drv->id == UCLASS_RKNAND) {
+		/* For mmc/nand/spiflash, just update from kernel dtb instead bind again*/
+		if (drv->id == UCLASS_MMC || drv->id == UCLASS_RKNAND ||
+		    drv->id == UCLASS_SPI_FLASH || drv->id == UCLASS_MTD) {
 			list_for_each_entry(dev, &uc->dev_head, uclass_node) {
 				if (!strcmp(name, dev->name)) {
 					debug("%s do not bind dev already in list %s\n",
@@ -68,8 +69,10 @@ static int device_bind_common(struct udevice *parent, const struct driver *drv,
 		struct udevice *n;
 
 		list_for_each_entry_safe(dev, n, &uc->dev_head, uclass_node) {
-			if (!strcmp(name, dev->name)) {
-				if (drv->id == UCLASS_SERIAL) {
+			if (!strcmp(name, dev->name) &&
+			    (dev_read_bool(dev, "u-boot,dm-pre-reloc") ||
+			     dev_read_bool(dev, "u-boot,dm-spl"))) {
+				if (drv->id == UCLASS_SERIAL || drv->id == UCLASS_CRYPTO) {
 					/* Always use serial node from U-Boot dtb */
 					debug("%s do not delete uboot dev: %s\n",
 					      __func__, dev->name);

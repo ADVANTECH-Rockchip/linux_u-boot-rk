@@ -24,10 +24,15 @@ struct spl_image_info {
 	const char *name;
 	u8 os;
 	uintptr_t load_addr;
-	uintptr_t entry_point;
+	uintptr_t entry_point;		/* Next stage entry point */
+#if CONFIG_IS_ENABLED(ATF)
+	uintptr_t entry_point_bl32;
+	uintptr_t entry_point_bl33;
+#endif
 #if CONFIG_IS_ENABLED(LOAD_FIT)
 	void *fdt_addr;
 #endif
+	u32 boot_device;
 	u32 size;
 	u32 flags;
 	void *arg;
@@ -277,6 +282,12 @@ int spl_mmc_load_image(struct spl_image_info *spl_image,
 void spl_invoke_atf(struct spl_image_info *spl_image);
 
 /**
+ * bl31_entry - Fill bl31_params structure, and jump to bl31
+ */
+void bl31_entry(uintptr_t bl31_entry, uintptr_t bl32_entry,
+		uintptr_t bl33_entry, uintptr_t fdt_addr);
+
+/**
  * spl_optee_entry - entry function for optee
  *
  * args defind in op-tee project
@@ -298,4 +309,11 @@ void spl_optee_entry(void *arg0, void *arg1, void *arg2, void *arg3);
  * can implement 'board_return_to_bootrom'.
  */
 void board_return_to_bootrom(void);
+
+/**
+ * spl_perform_fixups() - arch/board-specific callback before processing
+ *                        the boot-payload
+ */
+void spl_perform_fixups(struct spl_image_info *spl_image);
+
 #endif

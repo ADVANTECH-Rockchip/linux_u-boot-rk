@@ -5,10 +5,14 @@
  */
 #include <common.h>
 #include <asm/io.h>
+#include <asm/arch/cpu.h>
 #include <asm/arch/grf_rk3308.h>
 #include <asm/arch/hardware.h>
+#include <asm/arch/rk_atags.h>
 #include <asm/gpio.h>
 #include <debug_uart.h>
+
+DECLARE_GLOBAL_DATA_PTR;
 
 #ifdef CONFIG_ARM64
 #include <asm/armv8/mmu.h>
@@ -36,6 +40,7 @@ struct mm_region *mem_map = rk3308_mem_map;
 #endif
 
 #define GRF_BASE	0xff000000
+#define SGRF_BASE	0xff2b0000
 
 enum {
 
@@ -72,6 +77,32 @@ enum {
 	UART2_IO_SEL_M0		= 0,
 	UART2_IO_SEL_M1,
 	UART2_IO_SEL_USB,
+
+	GPIO3B3_SEL_SRC_CTRL_SHIFT	= 7,
+	GPIO3B3_SEL_SRC_CTRL_MASK	= BIT(7),
+	GPIO3B3_SEL_SRC_CTRL_IOMUX	= 0,
+	GPIO3B3_SEL_SRC_CTRL_SEL_PLUS,
+
+	GPIO3B3_SEL_PLUS_SHIFT		= 4,
+	GPIO3B3_SEL_PLUS_MASK		= GENMASK(6, 4),
+	GPIO3B3_SEL_PLUS_GPIO3_B3	= 0,
+	GPIO3B3_SEL_PLUS_FLASH_ALE,
+	GPIO3B3_SEL_PLUS_EMMC_PWREN,
+	GPIO3B3_SEL_PLUS_SPI1_CLK,
+	GPIO3B3_SEL_PLUS_LCDC_D23_M1,
+
+	GPIO3B2_SEL_SRC_CTRL_SHIFT	= 3,
+	GPIO3B2_SEL_SRC_CTRL_MASK	= BIT(3),
+	GPIO3B2_SEL_SRC_CTRL_IOMUX	= 0,
+	GPIO3B2_SEL_SRC_CTRL_SEL_PLUS,
+
+	GPIO3B2_SEL_PLUS_SHIFT		= 0,
+	GPIO3B2_SEL_PLUS_MASK		= GENMASK(2, 0),
+	GPIO3B2_SEL_PLUS_GPIO3_B2	= 0,
+	GPIO3B2_SEL_PLUS_FLASH_RDN,
+	GPIO3B2_SEL_PLUS_EMMC_RSTN,
+	GPIO3B2_SEL_PLUS_SPI1_MISO,
+	GPIO3B2_SEL_PLUS_LCDC_D22_M1,
 };
 
 enum {
@@ -104,8 +135,8 @@ int rk_board_init(void)
 
 	ret = gpio_request(GPIO0_A4, "gpio0_a4");
 	if (ret < 0) {
-		debug("request for gpio0_a4 failed:%d\n", ret);
-		return ret;
+		printf("request for gpio0_a4 failed:%d\n", ret);
+		return 0;
 	}
 
 	gpio_direction_input(GPIO0_A4);
@@ -118,12 +149,39 @@ int rk_board_init(void)
 		      VCCIO3_3V3 << IOVSEL3_SHIFT;
 	rk_clrsetreg(&grf->soc_con0, IOVSEL3_CTRL_MASK | IOVSEL3_MASK, val);
 
+	gpio_free(GPIO0_A4);
 	return 0;
 }
+
+#ifdef CONFIG_SPL_BUILD
+int rk_board_init_f(void)
+{
+	static struct rk3308_grf * const grf = (void *)GRF_BASE;
+	unsigned long mask;
+	unsigned long value;
+
+	mask = GPIO3B2_SEL_PLUS_MASK | GPIO3B2_SEL_SRC_CTRL_MASK |
+		GPIO3B3_SEL_PLUS_MASK | GPIO3B3_SEL_SRC_CTRL_MASK;
+	value = (GPIO3B2_SEL_PLUS_FLASH_RDN << GPIO3B2_SEL_PLUS_SHIFT) |
+		(GPIO3B2_SEL_SRC_CTRL_SEL_PLUS << GPIO3B2_SEL_SRC_CTRL_SHIFT) |
+		(GPIO3B3_SEL_PLUS_FLASH_ALE << GPIO3B3_SEL_PLUS_SHIFT) |
+		(GPIO3B3_SEL_SRC_CTRL_SEL_PLUS << GPIO3B3_SEL_SRC_CTRL_SHIFT);
+
+	if (get_bootdev_by_brom_bootsource() == BOOT_TYPE_NAND) {
+		if (soc_is_rk3308b())
+			rk_clrsetreg(&grf->soc_con15, mask, value);
+	}
+
+	return 0;
+}
+#endif
 
 void board_debug_uart_init(void)
 {
 	static struct rk3308_grf * const grf = (void *)GRF_BASE;
+
+	if (gd && gd->serial.using_pre_serial)
+		return;
 
 	/* Enable early UART2 channel m1 on the rk3308 */
 	rk_clrsetreg(&grf->soc_con5, UART2_IO_SEL_MASK,
@@ -133,3 +191,15 @@ void board_debug_uart_init(void)
 		     GPIO4D2_UART2_RX_M1 << GPIO4D2_SHIFT |
 		     GPIO4D3_UART2_TX_M1 << GPIO4D3_SHIFT);
 }
+
+#if defined(CONFIG_SPL_BUILD)
+int arch_cpu_init(void)
+{
+	static struct rk3308_sgrf * const sgrf = (void *)SGRF_BASE;
+
+	/* Set CRYPTO SDMMC EMMC NAND SFC USB master bus to be secure access */
+	rk_clrreg(&sgrf->con_secure0, 0x2b83);
+
+	return 0;
+}
+#endif

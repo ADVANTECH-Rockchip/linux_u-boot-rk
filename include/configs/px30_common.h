@@ -18,11 +18,11 @@
 #define CONFIG_SYS_NS16550_MEM32
 
 #define CONFIG_SYS_TEXT_BASE		0x00200000
-#define CONFIG_SYS_INIT_SP_ADDR		0x00300000
+#define CONFIG_SYS_INIT_SP_ADDR		0x00400000
 #define CONFIG_SYS_LOAD_ADDR		0x00800800
 #define CONFIG_SPL_STACK		0x00400000
 #define CONFIG_SPL_TEXT_BASE		0x00000000
-#define CONFIG_SPL_MAX_SIZE		0x20000
+#define CONFIG_SPL_MAX_SIZE		0x40000
 #define CONFIG_SPL_BSS_START_ADDR	0x2000000
 #define CONFIG_SPL_BSS_MAX_SIZE		0x2000
 #define CONFIG_SYS_BOOTM_LEN		(64 << 20)	/* 64M */
@@ -40,7 +40,11 @@
 #define CONFIG_SYS_SDRAM_BASE		0
 #define SDRAM_MAX_SIZE			0xff000000
 #define SDRAM_BANK_SIZE			(2UL << 30)
+#ifdef CONFIG_DM_DVFS
+#define CONFIG_PREBOOT			"dvfs repeat"
+#else
 #define CONFIG_PREBOOT
+#endif
 
 #ifndef CONFIG_SPL_BUILD
 
@@ -48,12 +52,22 @@
 #define CONFIG_USB_FUNCTION_MASS_STORAGE
 #define CONFIG_ROCKUSB_G_DNL_PID        0x330d
 
+#ifdef CONFIG_ARM64
 #define ENV_MEM_LAYOUT_SETTINGS \
 	"scriptaddr=0x00500000\0" \
 	"pxefile_addr_r=0x00600000\0" \
-	"fdt_addr_r=0x01f00000\0" \
-	"kernel_addr_r=0x02080000\0" \
+	"fdt_addr_r=0x08300000\0" \
+	"kernel_addr_r=0x00280000\0" \
+	"kernel_addr_c=0x03e80000\0" \
 	"ramdisk_addr_r=0x0a200000\0"
+#else
+#define ENV_MEM_LAYOUT_SETTINGS \
+	"scriptaddr=0x00000000\0" \
+	"pxefile_addr_r=0x00100000\0" \
+	"fdt_addr_r=0x08300000\0" \
+	"kernel_addr_r=0x02008000\0" \
+	"ramdisk_addr_r=0x0a200000\0"
+#endif
 
 #include <config_distro_bootcmd.h>
 #define CONFIG_EXTRA_ENV_SETTINGS \
