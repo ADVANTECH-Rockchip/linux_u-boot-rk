@@ -1,0 +1,15 @@
+if TARGET_ROM_5780
+
+config SYS_BOARD
+	default "rom5780"
+
+config SYS_VENDOR
+	default "rockchip"
+
+config SYS_CONFIG_NAME
+	default "rom5780"
+
+config BOARD_SPECIFIC_OPTIONS # dummy
+	def_bool y
+
+endif
