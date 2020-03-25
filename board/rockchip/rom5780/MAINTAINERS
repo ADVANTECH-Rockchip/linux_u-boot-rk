@@ -1,0 +1,6 @@
+EVB-RK3399
+M:      Kever Yang <kever.yang@rock-chips.com>
+S:      Maintained
+F:      board/rockchip/rom5780
+F:      include/configs/rom5780.h
+F:      configs/rk3399_rom5780_2G_defconfig
