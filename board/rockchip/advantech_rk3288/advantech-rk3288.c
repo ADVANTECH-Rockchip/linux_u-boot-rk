@@ -26,8 +26,6 @@
 #include <asm/gpio.h>
 #include <dm/pinctrl.h>
 #include <dt-bindings/clock/rk3288-cru.h>
-#include <fdt_support.h>
-#include <fdtdec.h>
 
 #define GRF_BASE	0xff770000
 
@@ -159,49 +157,6 @@ static void board_version_config(void)
 		env_set("swversion",NULL);
 }
 
-extern int fdt_node_offset_by_phandle_node(const void *fdt, int node, uint32_t phandle);
-static void adv_parse_drm_env(void)
-{
-	char *p, *e;
-	int node,node1,node2;
-	int use_dts_screen=0;
-	int phandle;
-
-	node = fdt_path_offset(gd->fdt_blob, "/display-timings");
-	use_dts_screen = fdtdec_get_int(gd->fdt_blob, node, "use-dts-screen", 0);
-	if(!use_dts_screen || env_get("use_env_screen")){
-		p = env_get("prmry_screen");
-		e = env_get("extend_screen");
-		if(!p || !e) {
-			phandle = fdt_getprop_u32_default_node(gd->fdt_blob, node, 0, "native-mode", -1);
-			if(-1 != phandle) {
-				node = fdt_node_offset_by_phandle_node(gd->fdt_blob, node, phandle);
-				env_set("extend_screen",fdt_get_name(gd->fdt_blob, node, NULL));
-			} else 
-				env_set("extend_screen","edp-1920x1080");
-			env_set("prmry_screen","hdmi-default");
-		}
-	} else {
-		phandle = fdt_getprop_u32_default_node(gd->fdt_blob, node, 0, "extend-screen", -1);
-		if(-1 != phandle)
-			node2 = fdt_node_offset_by_phandle_node(gd->fdt_blob, node, phandle);
-		else
-			node2 = 0;
-		phandle = fdt_getprop_u32_default_node(gd->fdt_blob, node, 0, "prmry-screen", -1);
-		if(-1 != phandle)
-			node1 = fdt_node_offset_by_phandle_node(gd->fdt_blob, node, phandle);
-		else
-			node1 = 0;
-		if((node2 > 0) && (node1 > 0)) {
-			env_set("extend_screen",fdt_get_name(gd->fdt_blob, node2, NULL));
-			env_set("prmry_screen",fdt_get_name(gd->fdt_blob, node1, NULL));
-		} else {
-			env_set("prmry_screen","hdmi-default");
-			env_set("extend_screen","edp-1920x1080");
-		}
-	}
-}
-
 int rk3288_board_late_init(void)
 {
 #ifdef CONFIG_MAC_IN_SPI
@@ -218,8 +173,6 @@ int rk3288_board_late_init(void)
 	else
 		env_set("silent_linux",NULL);
 #endif
-
-	adv_parse_drm_env();
 
 	return 0;
 }
