@@ -90,7 +90,7 @@ int adv_board_early_init(void)
 		gpio_direction_output(CONFIG_RESET_PMIC_GPIO,0);
 		mdelay(5);
 		gpio_direction_output(CONFIG_RESET_PMIC_GPIO,1);
-		while(1);
+		mdelay(500);
 	}
 #endif
 
