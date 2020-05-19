@@ -1,0 +1,74 @@
+diff --git a/Makefile b/Makefile
+index 664e4507..9687ae3a 100644
+--- a/Makefile
++++ b/Makefile
+@@ -246,6 +246,10 @@ ifeq ($(HOSTARCH),$(ARCH))
+ CROSS_COMPILE ?=
+ endif
+ 
++ifneq ($(wildcard $(srctree)/../prebuilts/gcc/linux-x86/arm/gcc-linaro-6.3.1-2017.05-x86_64_arm-linux-gnueabihf),)
++CROSS_COMPILE	?= $(srctree)/../prebuilts/gcc/linux-x86/arm/gcc-linaro-6.3.1-2017.05-x86_64_arm-linux-gnueabihf/bin/arm-linux-gnueabihf-
++endif
++
+ KCONFIG_CONFIG	?= .config
+ export KCONFIG_CONFIG
+ 
+diff --git a/configs/ebcrb04a1-2G-rk3288_defconfig b/configs/ebcrb04a1-2G-rk3288_defconfig
+index 479178be..1e7dad36 100755
+--- a/configs/ebcrb04a1-2G-rk3288_defconfig
++++ b/configs/ebcrb04a1-2G-rk3288_defconfig
+@@ -220,7 +220,7 @@ CONFIG_SPL_DRIVERS_MISC_SUPPORT=y
+ # CONFIG_PLAT_USC1XXA1_2G is not set
+ CONFIG_PLAT_EBCRB04A1_2G=y
+ CONFIG_ENV_SIZE=0x8000
+-CONFIG_ENV_OFFSET=0x3f8000
++CONFIG_ENV_OFFSET=0xc0000
+ # CONFIG_SPL_LIBDISK_SUPPORT is not set
+ # CONFIG_SPL_NAND_SUPPORT is not set
+ # CONFIG_SPL_SPI_FLASH_SUPPORT is not set
+diff --git a/include/configs/ebcrb04_rk3288.h b/include/configs/ebcrb04_rk3288.h
+index a5350b06..9eca3140 100755
+--- a/include/configs/ebcrb04_rk3288.h
++++ b/include/configs/ebcrb04_rk3288.h
+@@ -77,11 +77,11 @@
+ #undef CONFIG_SF_DEFAULT_MODE
+ #endif
+ #define CONFIG_SF_DEFAULT_MODE SPI_MODE_0
+-#define CONFIG_ENV_SECT_SIZE	(64 * 1024)
++#define CONFIG_ENV_SECT_SIZE	0x10000
+ #ifdef CONFIG_ENV_SIZE
+ #undef CONFIG_ENV_SIZE
+ #endif
+-#define CONFIG_ENV_SIZE 0x10000
++#define CONFIG_ENV_SIZE 0x8000
+ #ifdef CONFIG_ENV_OFFSET
+ #undef CONFIG_ENV_OFFSET
+ #endif
+diff --git a/tools/env/Makefile b/tools/env/Makefile
+index 6a61bfab..604926f3 100644
+--- a/tools/env/Makefile
++++ b/tools/env/Makefile
+@@ -8,7 +8,7 @@
+ # fw_printenv is supposed to run on the target system, which means it should be
+ # built with cross tools. Although it may look weird, we only replace "HOSTCC"
+ # with "CC" here for the maximum code reuse of scripts/Makefile.host.
+-override HOSTCC = $(CC)
++override HOSTCC = $(CC) -static
+ 
+ # Compile for a hosted environment on the target
+ HOST_EXTRACFLAGS  = $(patsubst -I%,-idirafter%, $(filter -I%, $(UBOOTINCLUDE))) \
+diff --git a/tools/env/fw_env.config b/tools/env/fw_env.config
+index 7916ebdb..f0f38fa9 100644
+--- a/tools/env/fw_env.config
++++ b/tools/env/fw_env.config
+@@ -8,8 +8,8 @@
+ 
+ # NOR example
+ # MTD device name	Device offset	Env. size	Flash sector size	Number of sectors
+-/dev/mtd1		0x0000		0x4000		0x4000
+-/dev/mtd2		0x0000		0x4000		0x4000
++/dev/mtd0		0xc0000		0x8000
++#/dev/mtd2		0x0000		0x4000		0x4000
+ 
+ # MTD SPI-dataflash example
+ # MTD device name	Device offset	Env. size	Flash sector size	Number of sectors
