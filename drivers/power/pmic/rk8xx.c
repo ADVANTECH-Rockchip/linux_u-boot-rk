@@ -160,6 +160,10 @@ static struct reg_data rk817_init_reg[] = {
 #endif
 };
 
+static struct reg_data rk818_init_current[] = {
+	{ REG_USB_CTRL, 0x07, 0x0f}, /* 2A */
+};
+
 static const struct pmic_child_info pmic_children_info[] = {
 	{ .prefix = "DCDC", .driver = "rk8xx_buck"},
 	{ .prefix = "LDO", .driver = "rk8xx_ldo"},
@@ -178,9 +182,9 @@ static const struct pmic_child_info rtc_info[] = {
 };
 
 static const struct pmic_child_info fuel_gauge_info[] = {
-	{ .prefix = "battery", .driver = "rk818_fg"},
-	{ .prefix = "battery", .driver = "rk817_fg"},
-	{ .prefix = "battery", .driver = "rk816_fg"},
+	{ .addr = "1c", .prefix = "battery", .driver = "rk818_fg"},
+	{ .addr = "20", .prefix = "battery", .driver = "rk817_fg"},
+	{ .addr = "1a", .prefix = "battery", .driver = "rk816_fg"},
 	{ },
 };
 
@@ -191,7 +195,15 @@ static const struct pmic_child_info rk817_codec_info[] = {
 
 static int rk8xx_reg_count(struct udevice *dev)
 {
-	return RK808_NUM_OF_REGS;
+	struct rk8xx_priv *priv = dev_get_priv(dev);
+
+	switch (priv->variant) {
+	case RK809_ID:
+	case RK817_ID:
+		return RK817_NUM_OF_REGS;
+	default:
+		return RK808_NUM_OF_REGS;
+	}
 }
 
 static int rk8xx_write(struct udevice *dev, uint reg, const uint8_t *buff,
@@ -266,17 +278,6 @@ static int rk8xx_shutdown(struct udevice *dev)
 	return 0;
 }
 
-/*
- * When system suspend during U-Boot charge, make sure the plugout event
- * be able to wakeup cpu in wfi/wfe state.
- */
-#ifdef CONFIG_DM_CHARGE_DISPLAY
-static void rk8xx_plug_out_handler(int irq, void *data)
-{
-	printf("Plug out interrupt\n");
-}
-#endif
-
 #if CONFIG_IS_ENABLED(PMIC_CHILDREN)
 static int rk8xx_bind(struct udevice *dev)
 {
@@ -318,6 +319,17 @@ static int rk8xx_bind(struct udevice *dev)
 #endif
 
 #if defined(CONFIG_IRQ) && !defined(CONFIG_SPL_BUILD)
+/*
+ * When system suspend during U-Boot charge, make sure the plugout event
+ * be able to wakeup cpu in wfi/wfe state.
+ */
+#ifdef CONFIG_DM_CHARGE_DISPLAY
+static void rk8xx_plug_out_handler(int irq, void *data)
+{
+	printf("Plug out interrupt\n");
+}
+#endif
+
 static int rk8xx_ofdata_to_platdata(struct udevice *dev)
 {
 	struct rk8xx_priv *rk8xx = dev_get_priv(dev);
@@ -405,7 +417,9 @@ static inline int rk8xx_irq_chip_init(struct udevice *dev) { return 0; }
 static int rk8xx_probe(struct udevice *dev)
 {
 	struct rk8xx_priv *priv = dev_get_priv(dev);
+	struct reg_data *init_current = NULL;
 	struct reg_data *init_data = NULL;
+	int init_current_num = 0;
 	int init_data_num = 0;
 	int ret = 0, i, show_variant;
 	uint8_t msb, lsb, id_msb, id_lsb;
@@ -438,9 +452,17 @@ static int rk8xx_probe(struct udevice *dev)
 		break;
 	case RK805_ID:
 	case RK816_ID:
+		on_source = RK8XX_ON_SOURCE;
+		off_source = RK8XX_OFF_SOURCE;
+		break;
 	case RK818_ID:
 		on_source = RK8XX_ON_SOURCE;
 		off_source = RK8XX_OFF_SOURCE;
+		/* set current if no fuel gauge */
+		if (!ofnode_valid(dev_read_subnode(dev, "battery"))) {
+			init_current = rk818_init_current;
+			init_current_num = ARRAY_SIZE(rk818_init_current);
+		}
 		break;
 	case RK809_ID:
 	case RK817_ID:
@@ -463,6 +485,7 @@ static int rk8xx_probe(struct udevice *dev)
 		return -EINVAL;
 	}
 
+	/* common init */
 	for (i = 0; i < init_data_num; i++) {
 		ret = pmic_clrsetbits(dev,
 				      init_data[i].reg,
@@ -472,9 +495,18 @@ static int rk8xx_probe(struct udevice *dev)
 			printf("%s: i2c set reg 0x%x failed, ret=%d\n",
 			       __func__, init_data[i].reg, ret);
 		}
+	}
 
-		debug("%s: reg[0x%x] = 0x%x\n", __func__, init_data[i].reg,
-		      pmic_reg_read(dev, init_data[i].reg));
+	/* current init */
+	for (i = 0; i < init_current_num; i++) {
+		ret = pmic_clrsetbits(dev,
+				      init_current[i].reg,
+				      init_current[i].mask,
+				      init_current[i].val);
+		if (ret < 0) {
+			printf("%s: i2c set reg 0x%x failed, ret=%d\n",
+			       __func__, init_current[i].reg, ret);
+		}
 	}
 
 	printf("PMIC:  RK%x ", show_variant);

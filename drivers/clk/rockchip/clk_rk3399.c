@@ -1373,6 +1373,10 @@ static int rk3399_clk_enable(struct clk *clk)
 	case HCLK_HOST1:
 	case HCLK_HOST1_ARB:
 	case SCLK_USBPHY1_480M_SRC:
+	case ACLK_USB3OTG1:
+	case ACLK_USB3_GRF:
+	case SCLK_USB3OTG1_REF:
+	case SCLK_USB3OTG1_SUSPEND:
 		return 0;
 	}
 
@@ -1396,6 +1400,7 @@ static void rkclk_init(struct rk3399_cru *cru)
 	u32 pclk_div;
 
 	rk3399_configure_cpu(cru, APLL_816_MHZ, CPU_CLUSTER_LITTLE);
+	rk3399_configure_cpu(cru, APLL_816_MHZ, CPU_CLUSTER_BIG);
 
 	/*
 	 * some cru registers changed by bootrom, we'd better reset them to

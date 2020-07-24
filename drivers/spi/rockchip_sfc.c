@@ -103,6 +103,10 @@ check_member(rockchip_sfc_reg, data, 0x108);
 
 #define SFC_MAX_TRB		(512 * 31)
 
+#define SFC_MAX_RATE		(150 * 1000 * 1000)
+#define SFC_DEFAULT_RATE	(80 * 1000 * 1000)
+#define SFC_MIN_RATE		(10 * 1000 * 1000)
+
 enum rockchip_sfc_if_type {
 	IF_TYPE_STD,
 	IF_TYPE_DUAL,
@@ -123,6 +127,7 @@ struct rockchip_sfc {
 	u32 cmd;
 	u32 addr;
 	u8 addr_bits;
+	u8 addr_xbits_ext;
 	u8 dummy_bits;
 	u8 rw;
 	u32 trb;
@@ -132,7 +137,6 @@ static int rockchip_sfc_ofdata_to_platdata(struct udevice *bus)
 {
 	struct rockchip_sfc_platdata *plat = dev_get_platdata(bus);
 	struct rockchip_sfc *sfc = dev_get_priv(bus);
-	ofnode subnode;
 	int ret;
 
 	plat->base = dev_read_addr_ptr(bus);
@@ -142,15 +146,6 @@ static int rockchip_sfc_ofdata_to_platdata(struct udevice *bus)
 		return ret;
 	}
 
-	subnode = dev_read_first_subnode(bus);
-	if (!ofnode_valid(subnode)) {
-		printf("Error: subnode with SPI flash config missing!\n");
-		return -ENODEV;
-	}
-
-	plat->frequency = ofnode_read_u32_default(subnode, "spi-max-frequency",
-						  100000000);
-
 	return 0;
 }
 
@@ -158,8 +153,14 @@ static int rockchip_sfc_probe(struct udevice *bus)
 {
 	struct rockchip_sfc_platdata *plat = dev_get_platdata(bus);
 	struct rockchip_sfc *sfc = dev_get_priv(bus);
+	struct dm_spi_bus *dm_spi_bus;
 
+	dm_spi_bus = bus->uclass_priv;
+	dm_spi_bus->max_hz = plat->frequency;
 	sfc->regbase = (struct rockchip_sfc_reg *)plat->base;
+	sfc->max_freq = SFC_MAX_RATE;
+	sfc->speed_hz = SFC_DEFAULT_RATE;
+	clk_set_rate(&sfc->clk, sfc->speed_hz);
 
 	return 0;
 }
@@ -253,6 +254,9 @@ static void rockchip_sfc_setup_xfer(struct rockchip_sfc *sfc, u32 trb)
 	if (sfc->addr_bits == SFC_ADDR_24BITS ||
 	    sfc->addr_bits == SFC_ADDR_32BITS)
 		data_width = rockchip_sfc_get_if_type(sfc);
+
+	if (sfc->addr_bits == SFC_ADDR_XBITS)
+		writel(sfc->addr_xbits_ext - 1, &regs->abit);
 
 	val |= (data_width << SFC_DATA_WIDTH_SHIFT);
 
@@ -514,11 +518,13 @@ static int rockchip_sfc_xfer(struct udevice *dev, unsigned int bitlen,
 			break;
 		case 3: /* Nand prog,  */
 			sfc->addr_bits = SFC_ADDR_XBITS;
+			sfc->addr_xbits_ext = 16;
 			sfc->dummy_bits = 0;
 			sfc->addr = pcmd[2] | pcmd[1] << 8;
 			break;
 		case 2: /* Nand read/write feature */
 			sfc->addr_bits = SFC_ADDR_XBITS;
+			sfc->addr_xbits_ext = 8;
 			sfc->dummy_bits = 0;
 			sfc->addr = pcmd[1];
 			break;
@@ -545,7 +551,17 @@ static int rockchip_sfc_xfer(struct udevice *dev, unsigned int bitlen,
 			data_buf = NULL;
 		}
 
-		ret = rockchip_sfc_do_xfer(sfc, data_buf, len);
+		if (sfc->cmd == 0x9f && len == 4) {
+			/* SPI Nand read id */
+			sfc->addr_bits = SFC_ADDR_XBITS;
+			sfc->addr_xbits_ext = 8;
+			sfc->dummy_bits = 0;
+			sfc->addr = 0;
+			((u8 *)data_buf)[0] = 0xff;
+			ret = rockchip_sfc_do_xfer(sfc, &((u8 *)data_buf)[1], 3);
+		} else {
+			ret = rockchip_sfc_do_xfer(sfc, data_buf, len);
+		}
 	}
 
 	return ret;
@@ -559,6 +575,8 @@ static int rockchip_sfc_set_speed(struct udevice *bus, uint speed)
 		speed = sfc->max_freq;
 
 	sfc->speed_hz = speed;
+	clk_set_rate(&sfc->clk, sfc->speed_hz);
+	SFC_DBG("%s clk= %ld\n", __func__, clk_get_rate(&sfc->clk));
 
 	return 0;
 }
