@@ -697,7 +697,7 @@ CONFIG_OF_LIVE=y
 CONFIG_OF_SEPARATE=y
 # CONFIG_OF_EMBED is not set
 # CONFIG_OF_BOARD is not set
-CONFIG_OF_LIST="rk3288-ebcrb04-a1"
+CONFIG_OF_LIST="rk3288-ebcrb04-a2"
 # CONFIG_MULTI_DTB_FIT is not set
 # CONFIG_SPL_MULTI_DTB_FIT is not set
 CONFIG_OF_SPL_REMOVE_PROPS="pinctrl-0 pinctrl-names clock-names interrupt-parent assigned-clocks assigned-clock-rates assigned-clock-parents"
