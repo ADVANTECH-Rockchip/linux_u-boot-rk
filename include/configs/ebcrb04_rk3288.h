@@ -27,7 +27,7 @@
 #define CONFIG_BOOTDELAY		0
 
 /* switch debug port to normal uart */
-#define CONFIG_SWITCH_DEBUG_PORT_TO_UART
+/* #define CONFIG_SWITCH_DEBUG_PORT_TO_UART */
 #define CONFIG_DISABLE_CONSOLE
 #define DEBUG_SWITCH_GPIO	(2*32+0)//(GPIO_BANK2 | GPIO_A0)
 #define DEBUG_SWITCH_GPIO_ACTIVE 1
