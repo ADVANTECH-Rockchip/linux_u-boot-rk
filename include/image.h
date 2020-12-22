@@ -17,6 +17,7 @@
 #define __IMAGE_H__
 
 #include "compiler.h"
+#include <stdbool.h>
 #include <asm/byteorder.h>
 
 /* Define this to avoid #ifdefs later on */
@@ -927,9 +928,12 @@ int bootz_setup(ulong image, ulong *start, ulong *end);
 #define FIT_TYPE_PROP		"type"
 #define FIT_OS_PROP		"os"
 #define FIT_COMP_PROP		"compression"
+#define FIT_COMP_ADDR_PROP	"comp"
 #define FIT_ENTRY_PROP		"entry"
 #define FIT_LOAD_PROP		"load"
+#define FIT_PRE_LOAD_PROP	"preload"
 #define FIT_ROLLBACK_PROP	"rollback-index"
+#define FIT_KERNEL_FDT_PROP	"kernel-fdt"
 
 /* configuration node */
 #define FIT_KERNEL_PROP		"kernel"
@@ -1010,8 +1014,10 @@ int fit_image_get_os(const void *fit, int noffset, uint8_t *os);
 int fit_image_get_arch(const void *fit, int noffset, uint8_t *arch);
 int fit_image_get_type(const void *fit, int noffset, uint8_t *type);
 int fit_image_get_comp(const void *fit, int noffset, uint8_t *comp);
+bool fit_image_is_preload(const void *fit, int noffset);
 int fit_image_get_load(const void *fit, int noffset, ulong *load);
 int fit_image_get_entry(const void *fit, int noffset, ulong *entry);
+int fit_image_get_comp_addr(const void *fit, int noffset, ulong *comp);
 int fit_image_set_load(const void *fit, int noffset, ulong load);
 int fit_image_set_entry(const void *fit, int noffset, ulong entry);
 int fit_image_get_data(const void *fit, int noffset,
@@ -1360,6 +1366,9 @@ void android_image_set_decomp(struct andr_img_hdr *hdr, int comp);
 int android_image_parse_comp(struct andr_img_hdr *hdr, ulong *load_addr);
 int android_image_memcpy_separate(struct andr_img_hdr *hdr, ulong *load_address);
 
+struct andr_img_hdr *populate_andr_img_hdr(struct blk_desc *dev_desc,
+					   disk_partition_t *part_boot);
+
 /** android_image_load - Load an Android Image from storage.
  *
  * Load an Android Image based on the header size in the storage.
@@ -1411,11 +1420,16 @@ int board_fit_config_name_match(const char *name);
  * into the FIT creation (i.e. the binary blobs would have been pre-processed
  * before being added to the FIT image).
  *
+ * @fit: fit blob
  * @image: pointer to the image start pointer
+ * @load_addr: load address pointer to image(Uncompressed)
+ * @src_addr: source address pointer to image(Compressed maybe)
  * @size: pointer to the image size
  * @return no return value (failure should be handled internally)
  */
-void board_fit_image_post_process(void **p_image, size_t *p_size);
+void board_fit_image_post_process(void *fit, int node, ulong *load_addr,
+				  ulong **src_addr, size_t *size);
+
 #endif /* CONFIG_SPL_FIT_IMAGE_POST_PROCESS */
 
 #define FDT_ERROR	((ulong)(-1))

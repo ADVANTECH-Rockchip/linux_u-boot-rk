@@ -711,6 +711,23 @@ int fit_image_get_comp(const void *fit, int noffset, uint8_t *comp)
 	return 0;
 }
 
+bool fit_image_is_preload(const void *fit, int noffset)
+{
+	int len;
+	int *data;
+
+	data = (int *)fdt_getprop(fit, noffset, FIT_PRE_LOAD_PROP, &len);
+	if (data == NULL || len != sizeof(int)) {
+		fit_get_debug(fit, noffset, FIT_PRE_LOAD_PROP, len);
+		return false;
+	}
+
+	if (*data != 1)
+		return false;
+
+	return true;
+}
+
 static int fit_image_get_address(const void *fit, int noffset, char *name,
 			  ulong *load)
 {
@@ -783,6 +800,24 @@ static int fit_image_set_address(const void *fit, int noffset, char *name,
 int fit_image_get_load(const void *fit, int noffset, ulong *load)
 {
 	return fit_image_get_address(fit, noffset, FIT_LOAD_PROP, load);
+}
+
+/**
+ * fit_image_get_comp_addr() - get compress addr property for given component image node
+ * @fit: pointer to the FIT format image header
+ * @noffset: component image node offset
+ * @comp: pointer to the uint32_t, will hold load address
+ *
+ * fit_image_get_comp_addr() finds compress address property in a given component
+ * image node. If the property is found, its value is returned to the caller.
+ *
+ * returns:
+ *     0, on success
+ *     -1, on failure
+ */
+int fit_image_get_comp_addr(const void *fit, int noffset, ulong *comp)
+{
+	return fit_image_get_address(fit, noffset, FIT_COMP_ADDR_PROP, comp);
 }
 
 /**
@@ -2150,8 +2185,13 @@ int fit_image_load_index(bootm_headers_t *images, ulong addr,
 	}
 
 #if !defined(USE_HOSTCC) && defined(CONFIG_FIT_IMAGE_POST_PROCESS)
+	ret = fit_image_get_load(fit, noffset, &load);
+	if (ret < 0)
+		return ret;
+
 	/* perform any post-processing on the image data */
-	board_fit_image_post_process((void **)&buf, &size);
+	board_fit_image_post_process((void *)fit, noffset,
+				     &load, (ulong **)&buf, &size);
 #endif
 
 	len = (ulong)size;
