@@ -132,16 +132,6 @@
 	status = "okay";
 };
 
-&dwc3_typec0 {
-	//vbus-supply = <&vcc5v0_typec0>;
-	status = "disabled";
-};
-
-&dwc3_typec1 {
-	//vbus-supply = <&vcc5v0_typec1>;
-	status = "disabled";
-};
-
 &i2c0 {
 	status = "okay";
 	clock-frequency = <400000>;
