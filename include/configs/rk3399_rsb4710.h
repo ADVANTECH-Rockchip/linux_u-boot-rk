@@ -37,7 +37,7 @@
 #endif
 
 #ifdef CONFIG_USING_KERNEL_DTB
-#undef CONFIG_USING_KERNEL_DTB
+/*#undef CONFIG_USING_KERNEL_DTB*/
 #endif
 
 #ifdef CONFIG_ENV_SIZE
