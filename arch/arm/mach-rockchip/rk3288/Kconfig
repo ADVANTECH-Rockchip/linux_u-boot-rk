@@ -138,6 +138,12 @@ config TARGET_TINKER_RK3288
 	  8GB eMMC and 2GB of SDRAM. Expansion connectors provide access to
 	  I2C, SPI, UART, GPIOs.
 
+config TARGET_ADVANTECH_RK3288
+	bool "Advantech-RK3288"
+	select BOARD_LATE_INIT
+	help
+	  ADV-RK3288 support advantech rk3288 platform,such as RSB-4680...
+
 config ROCKCHIP_FAST_SPL
 	bool "Change the CPU to full speed in SPL"
 	depends on TARGET_CHROMEBOOK_JERRY
@@ -194,5 +200,7 @@ source "board/rockchip/evb_rk3288_rk1608/Kconfig"
 source "board/rockchip/fennec_rk3288/Kconfig"
 
 source "board/rockchip/tinker_rk3288/Kconfig"
+
+source "board/rockchip/advantech_rk3288/Kconfig"
 
 endif

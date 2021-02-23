@@ -1,0 +1,27 @@
+if TARGET_ADVANTECH_RK3288
+
+choice
+	prompt "advantech rk3288 platform select"
+
+config PLAT_RSB4680A3_2G
+	bool "Support rk3288 rsb4680a103-1 2G"
+
+endchoice
+
+config SYS_BOARD
+	default "advantech_rk3288"
+
+config SYS_VENDOR
+	default "rockchip"
+
+if PLAT_RSB4680A3_2G
+
+config SYS_CONFIG_NAME
+	default "rk3288_rsb4680"
+
+endif
+
+config BOARD_SPECIFIC_OPTIONS # dummy
+	def_bool y
+
+endif
