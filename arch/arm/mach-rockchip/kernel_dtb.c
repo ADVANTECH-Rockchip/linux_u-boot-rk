@@ -273,19 +273,19 @@ int init_kernel_dtb(void)
 		}
 	}
 
-	if (!fdt_check_header(gd->fdt_blob_kern)) {
-		if (!dtb_check_ok((void *)gd->fdt_blob_kern, (void *)gd->fdt_blob)) {
+	if (!fdt_check_header(gd->fdt_blob)) {
+		if (!dtb_check_ok((void *)gd->fdt_blob, (void *)gd->fdt_blob)) {
 			printf("Embedded kernel dtb mismatch this platform!\n");
 			return -EINVAL;
 		}
 
 		fdt_addr = (ulong)memalign(ARCH_DMA_MINALIGN,
-				fdt_totalsize(gd->fdt_blob_kern));
+				fdt_totalsize(gd->fdt_blob));
 		if (!fdt_addr)
 			return -ENOMEM;
 
-		memcpy((void *)fdt_addr, gd->fdt_blob_kern,
-		       fdt_totalsize(gd->fdt_blob_kern));
+		memcpy((void *)fdt_addr, gd->fdt_blob,
+		       fdt_totalsize(gd->fdt_blob));
 		printf("DTB: embedded kern.dtb\n");
 	} else {
 		printf("Failed to get kernel dtb, ret=%d\n", ret);

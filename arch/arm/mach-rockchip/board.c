@@ -615,8 +615,10 @@ int board_init_f_boot_flags(void)
 	}
 
 	/* The highest priority to turn off (override) console */
+#ifndef CONFIG_TARGET_ADVANTECH_RK3288
 #if defined(CONFIG_DISABLE_CONSOLE)
 	boot_flags |= GD_FLG_DISABLE_CONSOLE;
+#endif
 #endif
 
 	return boot_flags;
