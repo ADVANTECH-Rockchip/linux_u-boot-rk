@@ -1894,6 +1894,7 @@ void dw_hdmi_set_sample_rate(struct dw_hdmi *hdmi, unsigned int rate)
 
 static int dw_hdmi_hdcp_load_key(struct dw_hdmi *hdmi)
 {
+#ifdef CONFIG_ROCKCHIP_VENDOR_PARTITION
 	int i, j, ret, val;
 	struct hdcp_keys *hdcp_keys;
 
@@ -1955,6 +1956,7 @@ static int dw_hdmi_hdcp_load_key(struct dw_hdmi *hdmi)
 	}
 
 	free(hdcp_keys);
+#endif
 	return 0;
 }
 
