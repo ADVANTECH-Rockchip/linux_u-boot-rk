@@ -22,6 +22,20 @@
 #include <linux/libfdt.h>
 #include <linux/types.h>
 
+#ifdef CONFIG_TARGET_ADVANTECH_RK3288
+#include <malloc.h>
+
+#define LCD_EDP_OFFSET 		0
+#define LCD_LVDS_OFFSET		1
+#define LCD_HDMI_OFFSET		2
+
+#define LCD_EDP_DEFAULT_NAME 	"edp-default"
+#define LCD_HDMI_DEFAULT_NAME 	"hdmi-default"
+
+#define ARG_PRMRY_SCREEN 	" prmry_screen="
+#define ARG_EXTEND_SCREEN 	" extend_screen="
+#endif
+
 DECLARE_GLOBAL_DATA_PTR;
 
 /**
@@ -278,6 +292,109 @@ int fdt_initrd(void *fdt, ulong initrd_start, ulong initrd_end)
 	return 0;
 }
 
+#ifdef CONFIG_TARGET_ADVANTECH_RK3288
+static int set_lcm_prop_by_alias(void *fdt, const char *name, int enable)
+{
+	int err = 0;
+	const char *path;
+	int  node;
+
+	path = fdt_get_alias(fdt, name);
+	if (!path)
+	{
+		printf("WARNING :set %s error: %s\n", name, fdt_strerror(-FDT_ERR_BADPATH));
+		return -FDT_ERR_BADPATH;
+	}
+
+	node = fdt_path_offset(fdt, path);
+
+	if (node){
+		if(enable)
+			err = fdt_setprop(fdt, node, "status", "okay", sizeof("okay"));
+		else
+			err = fdt_setprop(fdt, node, "status", "disabled", sizeof("disabled"));
+	}
+	else
+	{
+		err = -FDT_ERR_BADOFFSET;
+	}
+
+	if (err < 0) {
+			printf("WARNING :set %s error: %s\n", name, fdt_strerror(err));
+	}
+
+	return err;
+}
+
+static int set_lcm_prop(void *fdt, const char *name, int enable)
+{
+	int err = 0;
+	int  node;
+
+	node = fdt_subnode_offset(fdt, 0, name);
+	if (node){
+		if(enable)
+			err = fdt_setprop(fdt, node, "status", "okay", sizeof("okay"));
+		else
+			err = fdt_setprop(fdt, node, "status", "disabled", sizeof("disabled"));
+	}
+	else
+	{
+		err = -FDT_ERR_BADOFFSET;
+	}
+
+	if (err < 0) {
+			printf("WARNING :set %s error: %s\n", name, fdt_strerror(err));
+	}
+
+	return err;
+}
+
+extern int fdt_node_offset_by_phandle_node(const void *fdt, int node, uint32_t phandle);
+static void adv_parse_drm_env(void *fdt)
+{
+	char *p, *e;
+	int node,node1,node2;
+	int use_dts_screen=0;
+	int phandle;
+
+	node = fdt_path_offset(fdt, "/display-timings");
+	use_dts_screen = fdtdec_get_int(fdt, node, "use-dts-screen", 0);
+	if(!use_dts_screen || env_get("use_env_screen")){
+		p = env_get("prmry_screen");
+		e = env_get("extend_screen");
+		if(!p || !e) {
+			phandle = fdt_getprop_u32_default_node(fdt, node, 0, "native-mode", -1);
+			if(-1 != phandle) {
+				node = fdt_node_offset_by_phandle_node(fdt, node, phandle);
+				env_set("extend_screen",fdt_get_name(fdt, node, NULL));
+			} else 
+				env_set("extend_screen","edp-1920x1080");
+			env_set("prmry_screen","hdmi-default");
+		}
+	} else {
+		phandle = fdt_getprop_u32_default_node(fdt, node, 0, "extend-screen", -1);
+		if(-1 != phandle)
+			node2 = fdt_node_offset_by_phandle_node(fdt, node, phandle);
+		else
+			node2 = 0;
+		phandle = fdt_getprop_u32_default_node(fdt, node, 0, "prmry-screen", -1);
+		if(-1 != phandle)
+			node1 = fdt_node_offset_by_phandle_node(fdt, node, phandle);
+		else
+			node1 = 0;
+		if((node2 > 0) && (node1 > 0)) {
+			env_set("extend_screen",fdt_get_name(fdt, node2, NULL));
+			env_set("prmry_screen",fdt_get_name(fdt, node1, NULL));
+		} else {
+			env_set("prmry_screen","hdmi-default");
+			env_set("extend_screen","edp-1920x1080");
+		}
+	}
+}
+#endif
+
+
 int fdt_chosen(void *fdt)
 {
 	/*
@@ -288,6 +405,17 @@ int fdt_chosen(void *fdt)
 	int   err;
 	int   i;
 	char  *str;		/* used to set string properties */
+#ifdef CONFIG_TARGET_ADVANTECH_RK3288
+	char *command_line = NULL, *e,*p;
+	uint len;
+	int  node;
+
+	char *prmry_screen;
+	char *extend_screen;
+	int screen_mode = 0;
+	char *allocated_screen = NULL;
+	const char *prop = NULL;
+#endif
 	int dump;
 
 	dump = is_hotkey(HK_CMDLINE);
@@ -363,7 +491,185 @@ int fdt_chosen(void *fdt)
 			}
 #endif
 		}
+#ifdef CONFIG_TARGET_ADVANTECH_RK3288
+		str = env_get("bootargs");
+		if(env_get("silent_linux")){
+			command_line = malloc(strlen(str)+sizeof("console=/dev/null")+1);
+			memset(command_line,0,strlen(str)+sizeof("console=/dev/null")+1);
+			p = str;
+			e = p;
+			p = strstr(p,"console=");
+			strncpy(command_line, e, p-e);
+			snprintf(command_line, strlen(command_line)+sizeof("console=/dev/null"),
+						"%sconsole=%s", command_line, "/dev/null");
+			len = strlen(command_line);
+			p = strstr(p," ");
+			strncpy(command_line+len, p, strlen(p));
+			command_line[strlen(command_line)] = '\0';
+			env_set("bootargs", command_line);
+			free(command_line);
 
+			//disable ttyFIQ0
+			node = fdt_subnode_offset(fdt, 0, "fiq-debugger");
+			if (node)
+				fdt_setprop(fdt, node, "status", "disabled", sizeof("disabled"));
+			str = env_get("bootargs");
+		}
+
+		if(env_get("androidboot.serialno")){
+			str = env_get("bootargs");
+			command_line = malloc(strlen(str)+100);
+			memset(command_line,0,strlen(str)+100);
+			memcpy(command_line,str,strlen(str));
+			strcat(command_line, " androidboot.serialno=");
+			strcat(command_line, env_get("androidboot.serialno"));
+			env_set("bootargs", command_line);
+			free(command_line);
+		}
+
+		if(env_get("androidboot.factorytime")){
+			str = env_get("bootargs");
+			command_line = malloc(strlen(str)+100);
+			memset(command_line,0,strlen(str)+100);
+			memcpy(command_line,str,strlen(str));
+			strcat(command_line, " androidboot.factorytime=");
+			strcat(command_line, env_get("androidboot.factorytime"));
+			env_set("bootargs", command_line);
+			free(command_line);
+		}
+
+		prop = fdt_getprop(fdt, 0, "model", NULL);
+		if(prop){
+			command_line = malloc(100);
+			memset(command_line,0,100);
+
+			p = env_get("boardsn");
+			e = strstr(prop," ");
+			memcpy(command_line,prop,e-prop);
+			if(p){
+				strcat(command_line, " ");
+				strcat(command_line, p);
+			} else {
+				//strcat(command_line, " unknown");
+				e = strrchr(prop,' ');
+				memcpy(command_line,prop,e-prop);
+			}
+			#if 1
+			e = env_get("swversion");
+			if(e){
+				strcat(command_line, " ");
+				strcat(command_line, e);
+			} else {
+				e = strrchr(prop,' ');
+				strcat(command_line, e);
+			}
+			#else
+			e = strrchr(prop,' ');
+			strcat(command_line, e);
+			#endif
+
+			fdt_setprop(fdt, 0, "model", command_line,strlen(command_line)+1);
+			free(command_line);
+		}else
+			printf("can't find model node\n");
+
+		// set screen begin
+		adv_parse_drm_env(fdt);
+		prmry_screen = env_get("prmry_screen");
+		extend_screen = env_get("extend_screen");
+
+		if(prmry_screen)
+		{
+			if(memcmp(prmry_screen,"edp", 3) == 0)
+				screen_mode |= 1 << LCD_EDP_OFFSET;
+			else if(memcmp(prmry_screen,"lvds", 4) == 0)
+				screen_mode |= 1 << LCD_LVDS_OFFSET;
+			else if(memcmp(prmry_screen,"hdmi", 4) == 0)
+				screen_mode |= 1 << LCD_HDMI_OFFSET;
+			else{
+				screen_mode |= 1 << LCD_EDP_OFFSET;
+				prmry_screen = LCD_EDP_DEFAULT_NAME;
+			}
+		}else{
+			screen_mode |= 1 << LCD_EDP_OFFSET;
+			prmry_screen = LCD_EDP_DEFAULT_NAME;
+		}
+
+		if(extend_screen)
+		{
+			if(memcmp(extend_screen,"edp", 3) == 0)
+				screen_mode |= 1 << LCD_EDP_OFFSET;
+			else if(memcmp(extend_screen,"lvds", 4) == 0)
+				screen_mode |= 1 << LCD_LVDS_OFFSET;
+			else if(memcmp(extend_screen,"hdmi", 4) == 0)
+				screen_mode |= 1 << LCD_HDMI_OFFSET;
+			else{
+				screen_mode |= 1 << LCD_HDMI_OFFSET;
+				extend_screen = LCD_HDMI_DEFAULT_NAME;
+			}
+		}else{
+			screen_mode |= 1 << LCD_HDMI_OFFSET;
+			extend_screen = LCD_HDMI_DEFAULT_NAME;
+		}
+
+		if((screen_mode != (1 << LCD_EDP_OFFSET | 1 << LCD_LVDS_OFFSET)) &&
+			(screen_mode != (1 << LCD_EDP_OFFSET | 1 << LCD_HDMI_OFFSET)) &&
+			(screen_mode != (1 << LCD_LVDS_OFFSET | 1 << LCD_HDMI_OFFSET)))
+		{
+			screen_mode = (1 << LCD_EDP_OFFSET | 1 << LCD_HDMI_OFFSET);
+			prmry_screen = LCD_EDP_DEFAULT_NAME;
+			extend_screen = LCD_HDMI_DEFAULT_NAME;
+		}
+
+		len = strlen(ARG_PRMRY_SCREEN) + strlen(prmry_screen) + 1;
+		len += strlen(ARG_EXTEND_SCREEN) + strlen(extend_screen) + 1;
+		allocated_screen = malloc(len);
+		memset(allocated_screen, 0, len);
+		snprintf(allocated_screen, len, "%s%s%s%s ", ARG_PRMRY_SCREEN, prmry_screen, ARG_EXTEND_SCREEN, extend_screen);
+
+		str = env_get("bootargs");
+		command_line = malloc(strlen(str)+ len + 1);
+		memset(command_line, 0, strlen(str)+ len + 1);
+		strcpy(command_line, str);
+		strcat(command_line, allocated_screen);
+		env_set("bootargs", command_line);
+		free(allocated_screen);
+		free(command_line);
+
+		switch(screen_mode)
+		{
+			// edp + lvds : 3
+			case (1 << LCD_EDP_OFFSET | 1 << LCD_LVDS_OFFSET):
+				// disable hdmi
+				set_lcm_prop_by_alias(fdt, "hdmi", 0);
+
+				// enable lvds
+				set_lcm_prop_by_alias(fdt, "lvds", 1);
+				set_lcm_prop(fdt, "lvds_panel", 1);
+				set_lcm_prop_by_alias(fdt, "lvds_in_vopb", 1);
+				break;
+			// lvds + hdmi : 6
+			case (1 << LCD_LVDS_OFFSET | 1 << LCD_HDMI_OFFSET):
+				//disable edp
+				set_lcm_prop_by_alias(fdt, "edp", 0);
+				set_lcm_prop_by_alias(fdt, "edp_phy", 0);
+				set_lcm_prop(fdt, "edp_panel", 0);
+
+				//enable lvds
+				set_lcm_prop_by_alias(fdt, "lvds", 1);
+				set_lcm_prop_by_alias(fdt, "lvds_in_vopl", 1);
+				set_lcm_prop(fdt, "lvds_panel", 1);
+				break;
+
+			default :
+
+				break;
+		}
+
+		nodeoffset = fdt_find_or_add_subnode(fdt, 0, "chosen");
+		if (nodeoffset < 0)
+			return nodeoffset;
+#endif
 		str = env_get("bootargs");
 		err = fdt_setprop(fdt, nodeoffset, "bootargs", str,
 				  strlen(str) + 1);
