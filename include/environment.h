@@ -9,6 +9,7 @@
 #define _ENVIRONMENT_H_
 
 #include <linux/kconfig.h>
+#include <linux/stddef.h>
 
 /**************************************************************************
  *
@@ -290,7 +291,7 @@ char *env_get_default(const char *name);
 void set_default_env(const char *s);
 
 /* [re]set to the board environment */
-int set_board_env(const char *vars, int size, int flags, bool ready);
+int set_board_env(const char *vars, int size, int flags, _Bool ready);
 
 /* [re]set individual variables to their value in the default environment */
 int set_default_vars(int nvars, char * const vars[]);

@@ -57,8 +57,13 @@ static int setup_flash_device(void)
 	int	ret;
 
 	/* speed and mode will be read from DT */
+#ifdef CONFIG_TARGET_ADVANTECH_RK3288
 	ret = spi_flash_probe_bus_cs(CONFIG_ENV_SPI_BUS, CONFIG_ENV_SPI_CS,
-				     0, 0, &new);
+				     CONFIG_ENV_SPI_MAX_HZ, CONFIG_ENV_SPI_MODE, &new);
+#else
+	ret = spi_flash_probe_bus_cs(CONFIG_ENV_SPI_BUS, CONFIG_ENV_SPI_CS,
+				 0, 0, &new);
+#endif
 	if (ret) {
 		set_default_env("!spi_flash_probe_bus_cs() failed");
 		return ret;
