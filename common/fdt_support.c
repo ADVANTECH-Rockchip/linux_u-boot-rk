@@ -24,16 +24,6 @@
 
 #ifdef CONFIG_TARGET_ADVANTECH_RK3288
 #include <malloc.h>
-
-#define LCD_EDP_OFFSET 		0
-#define LCD_LVDS_OFFSET		1
-#define LCD_HDMI_OFFSET		2
-
-#define LCD_EDP_DEFAULT_NAME 	"edp-default"
-#define LCD_HDMI_DEFAULT_NAME 	"hdmi-default"
-
-#define ARG_PRMRY_SCREEN 	" prmry_screen="
-#define ARG_EXTEND_SCREEN 	" extend_screen="
 #endif
 
 DECLARE_GLOBAL_DATA_PTR;
@@ -293,61 +283,53 @@ int fdt_initrd(void *fdt, ulong initrd_start, ulong initrd_end)
 }
 
 #ifdef CONFIG_TARGET_ADVANTECH_RK3288
-static int set_lcm_prop_by_alias(void *fdt, const char *name, int enable)
+int fdtdec_get_alias_node(void *blob, const char *name)
 {
-	int err = 0;
-	const char *path;
-	int  node;
+	const char *prop;
+	int alias_node;
+	int len;
 
-	path = fdt_get_alias(fdt, name);
-	if (!path)
-	{
-		printf("WARNING :set %s error: %s\n", name, fdt_strerror(-FDT_ERR_BADPATH));
+	if (!blob)
 		return -FDT_ERR_BADPATH;
-	}
-
-	node = fdt_path_offset(fdt, path);
-
-	if (node){
-		if(enable)
-			err = fdt_setprop(fdt, node, "status", "okay", sizeof("okay"));
-		else
-			err = fdt_setprop(fdt, node, "status", "disabled", sizeof("disabled"));
-	}
-	else
-	{
-		err = -FDT_ERR_BADOFFSET;
-	}
-
-	if (err < 0) {
-			printf("WARNING :set %s error: %s\n", name, fdt_strerror(err));
-	}
-
-	return err;
+	alias_node = fdt_path_offset(blob, "/aliases");
+	prop = fdt_getprop(blob, alias_node, name, &len);
+	if (!prop)
+		return -FDT_ERR_BADPATH;
+	return fdt_path_offset(blob, prop);
 }
 
-static int set_lcm_prop(void *fdt, const char *name, int enable)
+void adv_enable_status_by_alias_node(void *blob, const char *name)
 {
-	int err = 0;
-	int  node;
-
-	node = fdt_subnode_offset(fdt, 0, name);
-	if (node){
-		if(enable)
-			err = fdt_setprop(fdt, node, "status", "okay", sizeof("okay"));
-		else
-			err = fdt_setprop(fdt, node, "status", "disabled", sizeof("disabled"));
+	int node;
+	int err;
+	node = fdtdec_get_alias_node(blob, name);
+	if(node > 0)
+	{
+		err = fdt_setprop(blob, node, "status", "okay",sizeof("okay"));
+		if(err < 0)
+			printf("Enable %s status err = %d \n", name, err);
 	}
 	else
 	{
-		err = -FDT_ERR_BADOFFSET;
+		printf("Get %s status okay failed \n", name);
 	}
+}
 
-	if (err < 0) {
-			printf("WARNING :set %s error: %s\n", name, fdt_strerror(err));
+void adv_disable_status_by_alias_node(void *blob, const char *name)
+{
+	int node;
+	int err;
+	node = fdtdec_get_alias_node(blob, name);
+	if(node > 0)
+	{
+		err = fdt_setprop(blob, node, "status", "disabled",sizeof("disabled"));
+		if(err < 0)
+			printf("Disabled %s status err = %d \n", name, err);
 	}
-
-	return err;
+	else
+	{
+		printf("Get %s status disabled failed \n", name);
+	}
 }
 
 extern int fdt_node_offset_by_phandle_node(const void *fdt, int node, uint32_t phandle);
@@ -392,6 +374,86 @@ static void adv_parse_drm_env(void *fdt)
 		}
 	}
 }
+
+static void adv_set_lcd_node(void *blob)
+{
+	char *e,*p;
+	int node;
+	int enable_vopb = 0;
+
+	node = fdt_path_offset(blob, "/fdt_dummy");
+	if(node)
+		fdt_delprop(blob, node, "value");
+
+	p = env_get("prmry_screen");
+	e = env_get("extend_screen");
+	if(p && e) {
+		// enable hdmi
+		// hdmi hdmi_in_vopb hdmi_in_vopl
+		if(!memcmp(p,"hdmi",4) || !memcmp(e,"hdmi",4)) {
+			adv_enable_status_by_alias_node(blob, "hdmi");
+			adv_enable_status_by_alias_node(blob, "hdmi_in_vopb");
+			adv_disable_status_by_alias_node(blob, "hdmi_in_vopl");
+			enable_vopb = 1;
+		} else {
+			adv_disable_status_by_alias_node(blob, "hdmi");
+			adv_disable_status_by_alias_node(blob, "hdmi_in_vopb");
+			adv_disable_status_by_alias_node(blob, "hdmi_in_vopl");
+		}
+
+		// enable edp
+		// edp edp_phy edp_panel edp_in_vopb edp_in_vopl
+		// backlight
+		if(!memcmp(p,"edp",3) || !memcmp(e,"edp",3)) {
+			adv_enable_status_by_alias_node(blob, "edp");
+			adv_enable_status_by_alias_node(blob, "edp_phy");
+			adv_enable_status_by_alias_node(blob, "edp_panel");
+			adv_disable_status_by_alias_node(blob, "edp_in_vopb");
+			adv_disable_status_by_alias_node(blob, "edp_in_vopl");
+			if(enable_vopb)
+				adv_enable_status_by_alias_node(blob, "edp_in_vopl");
+			else
+			{
+				adv_enable_status_by_alias_node(blob, "edp_in_vopb");
+				enable_vopb = 1;
+			}
+		}
+		else
+		{
+			adv_disable_status_by_alias_node(blob, "edp");
+			adv_disable_status_by_alias_node(blob, "edp_phy");
+			adv_disable_status_by_alias_node(blob, "edp_panel");
+			adv_disable_status_by_alias_node(blob, "edp_in_vopb");
+			adv_disable_status_by_alias_node(blob, "edp_in_vopl");
+		}
+
+		// enable lvds
+		// lvds lvds_in_vopb lvds_in_vopl
+		// backlight
+		if(!memcmp(p,"lvds",4) || !memcmp(e,"lvds",4)) {
+			adv_enable_status_by_alias_node(blob, "lvds");
+			adv_enable_status_by_alias_node(blob, "lvds_panel");
+			adv_enable_status_by_alias_node(blob, "lvds_backlight");
+			adv_disable_status_by_alias_node(blob, "lvds_in_vopb");
+			adv_disable_status_by_alias_node(blob, "lvds_in_vopl");
+			if(enable_vopb)
+				adv_enable_status_by_alias_node(blob, "lvds_in_vopl");
+			else
+			{
+				adv_enable_status_by_alias_node(blob, "lvds_in_vopb");
+				enable_vopb = 1;
+			}
+		}
+		else
+		{
+			adv_disable_status_by_alias_node(blob, "lvds");
+			adv_disable_status_by_alias_node(blob, "lvds_panel");
+			adv_disable_status_by_alias_node(blob, "lvds_backlight");
+			adv_disable_status_by_alias_node(blob, "lvds_in_vopb");
+			adv_disable_status_by_alias_node(blob, "lvds_in_vopl");
+		}
+	}
+}
 #endif
 
 
@@ -406,14 +468,8 @@ int fdt_chosen(void *fdt)
 	int   i;
 	char  *str;		/* used to set string properties */
 #ifdef CONFIG_TARGET_ADVANTECH_RK3288
-	char *command_line = NULL, *e,*p;
+	char command_line[1024],*e,*p;
 	uint len;
-	int  node;
-
-	char *prmry_screen;
-	char *extend_screen;
-	int screen_mode = 0;
-	char *allocated_screen = NULL;
 	const char *prop = NULL;
 #endif
 	int dump;
@@ -493,9 +549,9 @@ int fdt_chosen(void *fdt)
 		}
 #ifdef CONFIG_TARGET_ADVANTECH_RK3288
 		str = env_get("bootargs");
-		if(env_get("silent_linux")){
-			command_line = malloc(strlen(str)+sizeof("console=/dev/null")+1);
-			memset(command_line,0,strlen(str)+sizeof("console=/dev/null")+1);
+		if(env_get("switch_debug")){
+			//parse earlycon
+			memset(command_line,0,sizeof(command_line));
 			p = str;
 			e = p;
 			p = strstr(p,"console=");
@@ -507,41 +563,34 @@ int fdt_chosen(void *fdt)
 			strncpy(command_line+len, p, strlen(p));
 			command_line[strlen(command_line)] = '\0';
 			env_set("bootargs", command_line);
-			free(command_line);
 
 			//disable ttyFIQ0
-			node = fdt_subnode_offset(fdt, 0, "fiq-debugger");
-			if (node)
-				fdt_setprop(fdt, node, "status", "disabled", sizeof("disabled"));
+			adv_enable_status_by_alias_node(fdt, "serial2");
+			adv_disable_status_by_alias_node(fdt, "debug_console");
 			str = env_get("bootargs");
 		}
 
 		if(env_get("androidboot.serialno")){
 			str = env_get("bootargs");
-			command_line = malloc(strlen(str)+100);
-			memset(command_line,0,strlen(str)+100);
+			memset(command_line,0,sizeof(command_line));
 			memcpy(command_line,str,strlen(str));
 			strcat(command_line, " androidboot.serialno=");
 			strcat(command_line, env_get("androidboot.serialno"));
 			env_set("bootargs", command_line);
-			free(command_line);
 		}
 
 		if(env_get("androidboot.factorytime")){
 			str = env_get("bootargs");
-			command_line = malloc(strlen(str)+100);
-			memset(command_line,0,strlen(str)+100);
+			memset(command_line,0,sizeof(command_line));
 			memcpy(command_line,str,strlen(str));
 			strcat(command_line, " androidboot.factorytime=");
 			strcat(command_line, env_get("androidboot.factorytime"));
 			env_set("bootargs", command_line);
-			free(command_line);
 		}
 
 		prop = fdt_getprop(fdt, 0, "model", NULL);
 		if(prop){
-			command_line = malloc(100);
-			memset(command_line,0,100);
+			memset(command_line,0,sizeof(command_line));
 
 			p = env_get("boardsn");
 			e = strstr(prop," ");
@@ -554,118 +603,50 @@ int fdt_chosen(void *fdt)
 				e = strrchr(prop,' ');
 				memcpy(command_line,prop,e-prop);
 			}
-			#if 1
+
 			e = env_get("swversion");
 			if(e){
 				strcat(command_line, " ");
 				strcat(command_line, e);
 			} else {
-				e = strrchr(prop,' ');
-				strcat(command_line, e);
+				p = strstr(prop," V");
+				e = strrchr(p,' ');
+				strncat(command_line, p, e-p);
 			}
-			#else
-			e = strrchr(prop,' ');
-			strcat(command_line, e);
-			#endif
+
+			e = env_get("hwversion");
+			if(e){
+				strcat(command_line, " ");
+				strcat(command_line, e);
+			} else {
+				e = strrchr(prop,' ');
+				if(strstr(e," A")) {
+					strcat(command_line, e);
+				}
+			}
 
 			fdt_setprop(fdt, 0, "model", command_line,strlen(command_line)+1);
-			free(command_line);
 		}else
 			printf("can't find model node\n");
 
 		// set screen begin
 		adv_parse_drm_env(fdt);
-		prmry_screen = env_get("prmry_screen");
-		extend_screen = env_get("extend_screen");
+		e = env_get("bootargs");
+		memset(command_line,0,sizeof(command_line));
+		memcpy(command_line,e,strlen(e));
 
-		if(prmry_screen)
-		{
-			if(memcmp(prmry_screen,"edp", 3) == 0)
-				screen_mode |= 1 << LCD_EDP_OFFSET;
-			else if(memcmp(prmry_screen,"lvds", 4) == 0)
-				screen_mode |= 1 << LCD_LVDS_OFFSET;
-			else if(memcmp(prmry_screen,"hdmi", 4) == 0)
-				screen_mode |= 1 << LCD_HDMI_OFFSET;
-			else{
-				screen_mode |= 1 << LCD_EDP_OFFSET;
-				prmry_screen = LCD_EDP_DEFAULT_NAME;
-			}
-		}else{
-			screen_mode |= 1 << LCD_EDP_OFFSET;
-			prmry_screen = LCD_EDP_DEFAULT_NAME;
+		p = env_get("prmry_screen");
+		e = env_get("extend_screen");
+		if(p && e) {
+			strcat(command_line, " prmry_screen=");
+			strcat(command_line, p);
+			strcat(command_line, " extend_screen=");
+			strcat(command_line, e);
+			env_set("bootargs", command_line);
+			adv_set_lcd_node(fdt);
 		}
 
-		if(extend_screen)
-		{
-			if(memcmp(extend_screen,"edp", 3) == 0)
-				screen_mode |= 1 << LCD_EDP_OFFSET;
-			else if(memcmp(extend_screen,"lvds", 4) == 0)
-				screen_mode |= 1 << LCD_LVDS_OFFSET;
-			else if(memcmp(extend_screen,"hdmi", 4) == 0)
-				screen_mode |= 1 << LCD_HDMI_OFFSET;
-			else{
-				screen_mode |= 1 << LCD_HDMI_OFFSET;
-				extend_screen = LCD_HDMI_DEFAULT_NAME;
-			}
-		}else{
-			screen_mode |= 1 << LCD_HDMI_OFFSET;
-			extend_screen = LCD_HDMI_DEFAULT_NAME;
-		}
-
-		if((screen_mode != (1 << LCD_EDP_OFFSET | 1 << LCD_LVDS_OFFSET)) &&
-			(screen_mode != (1 << LCD_EDP_OFFSET | 1 << LCD_HDMI_OFFSET)) &&
-			(screen_mode != (1 << LCD_LVDS_OFFSET | 1 << LCD_HDMI_OFFSET)))
-		{
-			screen_mode = (1 << LCD_EDP_OFFSET | 1 << LCD_HDMI_OFFSET);
-			prmry_screen = LCD_EDP_DEFAULT_NAME;
-			extend_screen = LCD_HDMI_DEFAULT_NAME;
-		}
-
-		len = strlen(ARG_PRMRY_SCREEN) + strlen(prmry_screen) + 1;
-		len += strlen(ARG_EXTEND_SCREEN) + strlen(extend_screen) + 1;
-		allocated_screen = malloc(len);
-		memset(allocated_screen, 0, len);
-		snprintf(allocated_screen, len, "%s%s%s%s ", ARG_PRMRY_SCREEN, prmry_screen, ARG_EXTEND_SCREEN, extend_screen);
-
-		str = env_get("bootargs");
-		command_line = malloc(strlen(str)+ len + 1);
-		memset(command_line, 0, strlen(str)+ len + 1);
-		strcpy(command_line, str);
-		strcat(command_line, allocated_screen);
-		env_set("bootargs", command_line);
-		free(allocated_screen);
-		free(command_line);
-
-		switch(screen_mode)
-		{
-			// edp + lvds : 3
-			case (1 << LCD_EDP_OFFSET | 1 << LCD_LVDS_OFFSET):
-				// disable hdmi
-				set_lcm_prop_by_alias(fdt, "hdmi", 0);
-
-				// enable lvds
-				set_lcm_prop_by_alias(fdt, "lvds", 1);
-				set_lcm_prop(fdt, "lvds_panel", 1);
-				set_lcm_prop_by_alias(fdt, "lvds_in_vopb", 1);
-				break;
-			// lvds + hdmi : 6
-			case (1 << LCD_LVDS_OFFSET | 1 << LCD_HDMI_OFFSET):
-				//disable edp
-				set_lcm_prop_by_alias(fdt, "edp", 0);
-				set_lcm_prop_by_alias(fdt, "edp_phy", 0);
-				set_lcm_prop(fdt, "edp_panel", 0);
-
-				//enable lvds
-				set_lcm_prop_by_alias(fdt, "lvds", 1);
-				set_lcm_prop_by_alias(fdt, "lvds_in_vopl", 1);
-				set_lcm_prop(fdt, "lvds_panel", 1);
-				break;
-
-			default :
-
-				break;
-		}
-
+		/* find or create "/chosen" node. */
 		nodeoffset = fdt_find_or_add_subnode(fdt, 0, "chosen");
 		if (nodeoffset < 0)
 			return nodeoffset;

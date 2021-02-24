@@ -25,7 +25,7 @@
 
 /* switch debug port to normal uart */
 #define CONFIG_DISABLE_CONSOLE
-#define DEBUG2UART_GPIO	(2*32+0)//(GPIO_BANK2 | GPIO_A0)
+#define DEBUG2UART_GPIO	(2*32+0-8)//(GPIO_BANK2 | GPIO_A0)
 #define DEBUG2UART_GPIO_ACTIVE 1
 
 /* reset pmic to reset all system */
