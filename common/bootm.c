@@ -957,7 +957,11 @@ static const void *boot_get_kernel(cmd_tbl_t *cmdtp, int flag, int argc,
 #endif
 #ifdef CONFIG_ANDROID_BOOT_IMAGE
 	case IMAGE_FORMAT_ANDROID:
+#ifdef CONFIG_TARGET_ADVANTECH_RK3288
+		printf("## Booting Linux Image at 0x%08lx ...\n", img_addr);
+#else
 		printf("## Booting Android Image at 0x%08lx ...\n", img_addr);
+#endif
 		if (android_image_get_kernel(buf, images->verify,
 					     os_data, os_len))
 			return NULL;
