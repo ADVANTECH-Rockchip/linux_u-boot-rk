@@ -60,6 +60,9 @@ int adv_board_early_init(void)
 #if defined DEBUG2UART_GPIO || defined CONFIG_DP83867_PHY_ID
 	struct rk3288_grf * const grf = (void *)GRF_BASE;
 #endif
+#ifdef RESET_PMIC_GPIO
+	uint32_t reg_boot_mode;
+#endif
 
 #ifdef DEBUG2UART_GPIO
 	gpio_request(DEBUG2UART_GPIO,"DEBUG2UART_GPIO");
@@ -86,13 +89,14 @@ int adv_board_early_init(void)
 	rk_clrsetreg(&grf->gpio1_p[2][3], (3 << 12) | (3 << 4), 0);
 #endif
 
-#ifdef CONFIG_RESET_PMIC_GPIO
-	if(BOOT_NORMAL == readl((void *)CONFIG_ROCKCHIP_BOOT_MODE_REG))
+#ifdef RESET_PMIC_GPIO
+	reg_boot_mode = readl((void *)CONFIG_ROCKCHIP_BOOT_MODE_REG);
+	if(BOOT_NORMAL == reg_boot_mode)
 	{
-		gpio_request(CONFIG_RESET_PMIC_GPIO,"reset pmic");
-		gpio_direction_output(CONFIG_RESET_PMIC_GPIO,0);
+		gpio_request(RESET_PMIC_GPIO,"reset pmic");
+		gpio_direction_output(RESET_PMIC_GPIO,0);
 		mdelay(5);
-		gpio_direction_output(CONFIG_RESET_PMIC_GPIO,1);
+		gpio_direction_output(RESET_PMIC_GPIO,1);
 		mdelay(500);
 	}
 #endif

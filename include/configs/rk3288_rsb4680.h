@@ -29,7 +29,7 @@
 #define DEBUG2UART_GPIO_ACTIVE 1
 
 /* reset pmic to reset all system */
-/*#define CONFIG_RESET_PMIC_GPIO	(0*32+10)*/ /* (GPIO_BANK0 | GPIO_B2) */
+#define RESET_PMIC_GPIO	(0*32+10) /* (GPIO_BANK0 | GPIO_B2) */
 
 /* HW board ID */
 /*#define CONFIG_DISPLAY_BOARD_ID*/

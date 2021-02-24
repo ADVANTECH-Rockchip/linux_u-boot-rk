@@ -176,6 +176,9 @@ int rockchip_get_boot_mode(void)
 		default:
 			printf("boot mode: None\n");
 			boot_mode[PL] = BOOT_MODE_UNDEFINE;
+		#ifdef CONFIG_TARGET_ADVANTECH_RK3288
+			clear_boot_reg = 1;
+		#endif
 		}
 	}
 
