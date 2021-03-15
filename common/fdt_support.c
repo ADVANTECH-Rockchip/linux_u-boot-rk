@@ -769,6 +769,13 @@ int fdt_chosen(void *fdt)
 			env_set("bootargs", command_line);
 		}
 
+		//append quiet to bootargs
+		e = env_get("bootargs");
+		memset(command_line,0,sizeof(command_line));
+		memcpy(command_line,e,strlen(e));
+		strcat(command_line, " quiet");
+		env_set("bootargs", command_line);
+
 		prop = fdt_getprop(fdt, 0, "model", NULL);
 		if(prop){
 			memset(command_line,0,sizeof(command_line));
