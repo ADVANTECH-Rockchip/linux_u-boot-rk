@@ -853,7 +853,7 @@ int fdt_chosen(void *fdt)
 		e = env_get("bootargs");
 		memset(command_line,0,sizeof(command_line));
 		memcpy(command_line,e,strlen(e));
-		strcat(command_line, " board_info=9");
+		//strcat(command_line, " board_info=9");
 
 		p = env_get("prmry_screen");
 		e = env_get("extend_screen");
