@@ -41,9 +41,9 @@
 
 /* mac in spi*/
 #define CONFIG_ENV_OVERWRITE
-/*#define CONFIG_MAC_IN_SPI
-#define CONFIG_SPI_MAC_OFFSET (896*1024)
-#define CONFIG_DP83867_PHY_ID*/
+#define ADV_MAC_IN_SPI
+#define ADV_SPI_MAC_OFFSET (896*1024)
+#define ADV_DP83867_PHY_ID
 #define FDT_SEQ_MACADDR_FROM_ENV
 
 /*enc in SPI flash*/

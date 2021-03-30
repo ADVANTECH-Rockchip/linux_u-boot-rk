@@ -57,7 +57,7 @@ int checkboard(void)
 
 int adv_board_early_init(void)
 {
-#if defined DEBUG2UART_GPIO || defined CONFIG_DP83867_PHY_ID
+#if defined DEBUG2UART_GPIO || defined ADV_DP83867_PHY_ID
 	struct rk3288_grf * const grf = (void *)GRF_BASE;
 #endif
 #ifdef RESET_PMIC_GPIO
@@ -85,7 +85,7 @@ int adv_board_early_init(void)
 #endif
 
 	/* pull disable to fix 83867 phy address*/
-#ifdef CONFIG_DP83867_PHY_ID
+#ifdef ADV_DP83867_PHY_ID
 	rk_clrsetreg(&grf->gpio1_p[2][3], (3 << 12) | (3 << 4), 0);
 #endif
 
@@ -104,7 +104,7 @@ int adv_board_early_init(void)
 	return 0;
 }
 
-#ifdef CONFIG_MAC_IN_SPI
+#ifdef ADV_MAC_IN_SPI
 static int board_info_in_spi(void)
 {
     struct spi_flash *flash;
@@ -116,7 +116,7 @@ static int board_info_in_spi(void)
 				CONFIG_SF_DEFAULT_SPEED, CONFIG_SF_DEFAULT_MODE);
 	if (!flash)
 		return -1;
-	if(spi_flash_read(flash, CONFIG_SPI_MAC_OFFSET, 50, enetaddr)==0) {
+	if(spi_flash_read(flash, ADV_SPI_MAC_OFFSET, 50, enetaddr)==0) {
 		spi_flash_free(flash);
 		valid = is_valid_ethaddr(enetaddr);
 
@@ -166,7 +166,7 @@ static void board_version_config(void)
 
 int rk3288_board_late_init(void)
 {
-#ifdef CONFIG_MAC_IN_SPI
+#ifdef ADV_MAC_IN_SPI
 	board_info_in_spi();
 #endif
 
