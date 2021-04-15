@@ -3,6 +3,9 @@ if TARGET_ADVANTECH_RK3399
 choice
 	prompt "advantech rk3399 platform select"
 
+config PLAT_RSB3710A2_2G
+	bool "Support rsb3710a2 2G"
+
 config PLAT_RSB4710A2_2G
 	bool "Support rsb4710a2 2G"
 
@@ -15,6 +18,14 @@ config SYS_BOARD
 
 config SYS_VENDOR
 	default "rockchip"
+
+if PLAT_RSB3710A2_2G
+config SYS_CONFIG_NAME
+	default "rk3399_rsb3710"
+
+config ADV_EDP_LVDS_USE_THE_SAME_RESOURCE
+	def_bool y
+endif
 
 if PLAT_RSB4710A2_2G
 config SYS_CONFIG_NAME

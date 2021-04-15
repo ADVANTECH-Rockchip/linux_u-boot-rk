@@ -543,17 +543,26 @@ static void adv_set_lcd_node(void *blob)
 		else
 		{
 			adv_disable_status_by_alias_node(blob, "dsi");
-			adv_disable_status_by_alias_node(blob, "dsi_backlight");
-			adv_disable_status_by_alias_node(blob, "dsi_vcc");
-			adv_disable_status_by_alias_node(blob, "dsi_vcc_io");
-			adv_disable_status_by_alias_node(blob, "lvds_pwr_vcc");
-			adv_disable_status_by_alias_node(blob, "lvds_bkl_vcc");
 			adv_disable_status_by_alias_node(blob, "dsi_in_vopb");
 			adv_disable_status_by_alias_node(blob, "dsi_in_vopl");
 			adv_disable_status_by_alias_node(blob, "dsi_route");
+		#ifdef CONFIG_ADV_EDP_LVDS_USE_THE_SAME_RESOURCE
+			if(!memcmp(p,"edp",3) || !memcmp(e,"edp",3)) {
+				//don't disable vcc & blk
+			}
+			else
+		#endif
+			{
+				adv_disable_status_by_alias_node(blob, "dsi_backlight");
+				adv_disable_status_by_alias_node(blob, "dsi_vcc");
+				adv_disable_status_by_alias_node(blob, "dsi_vcc_io");
+				adv_disable_status_by_alias_node(blob, "lvds_pwr_vcc");
+				adv_disable_status_by_alias_node(blob, "lvds_bkl_vcc");
+			}
+
 		}
 #ifdef CONFIG_CUSTOM_GY_SPECIFIC_OPTIONS
-		if(!memcmp(p,"hdmi",4) && !memcmp(e,"null",4))
+		//if(!memcmp(p,"hdmi",4) && !memcmp(e,"null",4))
 		{
 			//enable LVDS backlight
 			adv_enable_status_by_alias_node(blob, "dsi_backlight");
@@ -598,6 +607,72 @@ static void adv_set_lcd_node(void *blob)
 					fdt_setprop(blob, node, "pwms", cells, sizeof(cells[0]) * 4);
 				}
 			}
+		}
+	}
+}
+
+static void adv_parse_uio_env(void *fdt)
+{
+	char *uio_env;
+	char uio_name[32];
+	int uio_default;
+	int node;
+	//int phandle;
+	uio_env = env_get("uio");
+	if(uio_env)
+		return;
+
+	node = fdt_path_offset(fdt, "/adv-uio");
+	uio_default = fdtdec_get_int(fdt, node, "uio-default", 0);
+
+	if(uio_default == 0){
+		env_set("uio","standard");
+	}else{
+		sprintf(uio_name, "%d", uio_default);
+		env_set("uio", uio_name);
+	}
+}
+
+static void adv_set_uio_node(void *blob)
+{
+	char *uio_env;
+
+	uio_env = env_get("uio");
+	if(uio_env) {
+		if(!memcmp(uio_env,"4030",4)) {
+			adv_disable_status_by_alias_node(blob, "uio_gpio_standard");
+			adv_enable_status_by_alias_node(blob, "uio_gpio_4030");
+			adv_disable_status_by_alias_node(blob, "uio_gpio_4032");
+			adv_disable_status_by_alias_node(blob, "uio_gpio_4034");
+			adv_disable_status_by_alias_node(blob, "uio_gpio_4036");
+			adv_disable_status_by_alias_node(blob, "rtl8367");
+		}
+
+		if(!memcmp(uio_env,"4032",4)) {
+			adv_disable_status_by_alias_node(blob, "uio_gpio_standard");
+			adv_disable_status_by_alias_node(blob, "uio_gpio_4030");
+			adv_enable_status_by_alias_node(blob, "uio_gpio_4032");
+			adv_disable_status_by_alias_node(blob, "uio_gpio_4034");
+			adv_disable_status_by_alias_node(blob, "uio_gpio_4036");
+			adv_disable_status_by_alias_node(blob, "rtl8367");
+		}
+
+		if(!memcmp(uio_env,"4034",4)) {
+			adv_disable_status_by_alias_node(blob, "uio_gpio_standard");
+			adv_disable_status_by_alias_node(blob, "uio_gpio_4030");
+			adv_disable_status_by_alias_node(blob, "uio_gpio_4032");
+			adv_enable_status_by_alias_node(blob, "uio_gpio_4034");
+			adv_disable_status_by_alias_node(blob, "uio_gpio_4036");
+			adv_disable_status_by_alias_node(blob, "rtl8367");
+		}
+
+		if(!memcmp(uio_env,"4036",4)) {
+			adv_disable_status_by_alias_node(blob, "uio_gpio_standard");
+			adv_disable_status_by_alias_node(blob, "uio_gpio_4030");
+			adv_disable_status_by_alias_node(blob, "uio_gpio_4032");
+			adv_disable_status_by_alias_node(blob, "uio_gpio_4034");
+			adv_enable_status_by_alias_node(blob, "uio_gpio_4036");
+			adv_enable_status_by_alias_node(blob, "rtl8367");
 		}
 	}
 }
@@ -857,15 +932,25 @@ int fdt_chosen(void *fdt)
 
 		p = env_get("prmry_screen");
 		e = env_get("extend_screen");
-		if(p && e) {
+		if(p)
+		{
 			strcat(command_line, " prmry_screen=");
 			strcat(command_line, p);
+			env_set("bootargs", command_line);
+		}
+		if(e)
+		{
+
 			strcat(command_line, " extend_screen=");
 			strcat(command_line, e);
 			env_set("bootargs", command_line);
-			adv_set_lcd_node(fdt);
 		}
+		if(p || e)
+			adv_set_lcd_node(fdt);
 
+
+		adv_parse_uio_env(fdt);
+		adv_set_uio_node(fdt);
 		/* find or create "/chosen" node. */
 		nodeoffset = fdt_find_or_add_subnode(fdt, 0, "chosen");
 		if (nodeoffset < 0)
