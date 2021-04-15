@@ -362,6 +362,8 @@ static void adv_parse_drm_env(void *fdt)
 			node2 = fdt_node_offset_by_phandle_node(fdt, node, phandle);
 			env_set("extend_screen",fdt_get_name(fdt, node2, NULL));
 		}
+		else
+			env_set("extend_screen","null");
 
 		phandle = fdt_getprop_u32_default_node(fdt, node, 0, "prmry-screen", -1);
 		if(-1 != phandle)
@@ -369,6 +371,8 @@ static void adv_parse_drm_env(void *fdt)
 			node1 = fdt_node_offset_by_phandle_node(fdt, node, phandle);
 			env_set("prmry_screen",fdt_get_name(fdt, node1, NULL));
 		}
+		else
+			env_set("prmry_screen","null");
 	}
 }
 
