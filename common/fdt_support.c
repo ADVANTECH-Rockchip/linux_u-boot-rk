@@ -360,21 +360,21 @@ static void adv_parse_drm_env(void *fdt)
 	} else {
 		phandle = fdt_getprop_u32_default_node(fdt, node, 0, "extend-screen", -1);
 		if(-1 != phandle)
+		{
 			node2 = fdt_node_offset_by_phandle_node(fdt, node, phandle);
+			env_set("extend_screen",fdt_get_name(fdt, node2, NULL));
+		}
 		else
-			node2 = 0;
+			env_set("extend_screen","null");
+
 		phandle = fdt_getprop_u32_default_node(fdt, node, 0, "prmry-screen", -1);
 		if(-1 != phandle)
+		{
 			node1 = fdt_node_offset_by_phandle_node(fdt, node, phandle);
-		else
-			node1 = 0;
-		if((node2 > 0) && (node1 > 0)) {
-			env_set("extend_screen",fdt_get_name(fdt, node2, NULL));
 			env_set("prmry_screen",fdt_get_name(fdt, node1, NULL));
-		} else {
-			env_set("prmry_screen","hdmi-default");
-			env_set("extend_screen","dp-default");
 		}
+		else
+			env_set("prmry_screen","null");
 	}
 }
 
