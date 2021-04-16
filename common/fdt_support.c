@@ -334,11 +334,12 @@ void adv_disable_status_by_alias_node(void *blob, const char *name)
 }
 
 extern int fdt_node_offset_by_phandle_node(const void *fdt, int node, uint32_t phandle);
+
+static int use_dts_screen=0;
 static void adv_parse_drm_env(void *fdt)
 {
 	char *p, *e;
 	int node,node1,node2;
-	int use_dts_screen=0;
 	int phandle;
 
 	node = fdt_path_offset(fdt, "/display-timings");
@@ -927,7 +928,7 @@ int fdt_chosen(void *fdt)
 			strcat(command_line, e);
 			env_set("bootargs", command_line);
 		}
-		if(p || e)
+		if((!use_dts_screen) && (p || e))
 			adv_set_lcd_node(fdt);
 
 
