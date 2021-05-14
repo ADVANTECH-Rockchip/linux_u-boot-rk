@@ -64,6 +64,19 @@ int fw_printenv(int argc, char *argv[], int value_only, struct env_opts *opts);
 int fw_env_set(int argc, char *argv[], struct env_opts *opts);
 
 /**
+ * fw_env_default() - default environment
+ *
+ * @argc: number of strings in argv, argv[0] is variable name,
+ *          argc==1 means erase variable, argc > 1 means add a variable
+ * @argv: argv[0] is variable name, argv[1..argc-1] are concatenated separated
+ *           by single blank and set as the new value of the variable
+ *
+ * Return:
+ *  0 on success, -1 on failure (modifies errno)
+ */
+int fw_env_default(struct env_opts *opts);
+
+/**
  * fw_parse_script() - adds or removes multiple variables with a batch script
  *
  * @fname: batch script file name
