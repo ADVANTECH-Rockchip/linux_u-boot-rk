@@ -40,7 +40,10 @@
 
 #define CMD_PRINTENV	"fw_printenv"
 #define CMD_SETENV	"fw_setenv"
-static int do_printenv;
+#define CMD_DEFENV	"fw_defenv"
+static int do_printenv=0;
+static int do_setenv=0;
+static int do_defenv=0;
 
 static struct option long_options[] = {
 	{"aes", required_argument, NULL, 'a'},
@@ -232,7 +235,9 @@ int main(int argc, char *argv[])
 	if (strcmp(_cmdname, CMD_PRINTENV) == 0) {
 		do_printenv = 1;
 	} else if (strcmp(_cmdname, CMD_SETENV) == 0) {
-		do_printenv = 0;
+		do_setenv = 1;
+	} else if (strcmp(_cmdname, CMD_DEFENV) == 0) {
+		do_defenv = 1;
 	} else {
 		fprintf(stderr,
 			"Identity crisis - may be called as `%s' or as `%s' but not as `%s'\n",
@@ -243,9 +248,11 @@ int main(int argc, char *argv[])
 	if (do_printenv) {
 		if (parse_printenv_args(argc, argv))
 			exit(EXIT_FAILURE);
-	} else {
+	} else if (do_setenv) {
 		if (parse_setenv_args(argc, argv))
 			exit(EXIT_FAILURE);
+	} else if (do_defenv) {
+		parse_common_args(argc, argv);
 	}
 
 	/* shift parsed flags, jump to non-option arguments */
@@ -279,7 +286,7 @@ int main(int argc, char *argv[])
 	if (do_printenv) {
 		if (fw_printenv(argc, argv, noheader, &env_opts) != 0)
 			retval = EXIT_FAILURE;
-	} else {
+	} else if (do_setenv) {
 		if (!script_file) {
 			if (fw_env_set(argc, argv, &env_opts) != 0)
 				retval = EXIT_FAILURE;
@@ -287,6 +294,9 @@ int main(int argc, char *argv[])
 			if (fw_parse_script(script_file, &env_opts) != 0)
 				retval = EXIT_FAILURE;
 		}
+	} else {
+		if (fw_env_default(&env_opts) != 0)
+				retval = EXIT_FAILURE;
 	}
 
 	if (env_opts.lockname)
