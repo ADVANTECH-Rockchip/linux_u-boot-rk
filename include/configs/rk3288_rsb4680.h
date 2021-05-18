@@ -77,7 +77,7 @@
 #ifdef CONFIG_ENV_SIZE
 #undef CONFIG_ENV_SIZE
 #endif
-#define CONFIG_ENV_SIZE 0x8000
+#define CONFIG_ENV_SIZE 0x1000
 #ifdef CONFIG_ENV_OFFSET
 #undef CONFIG_ENV_OFFSET
 #endif
