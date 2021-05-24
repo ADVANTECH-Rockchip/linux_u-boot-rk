@@ -863,7 +863,7 @@ int fdt_chosen(void *fdt)
 				strcat(command_line, p);
 			} else {
 				//strcat(command_line, " unknown");
-				e = strrchr(prop,' ');
+				e = strstr(prop," V");
 				memcpy(command_line,prop,e-prop);
 			}
 
