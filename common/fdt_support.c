@@ -834,6 +834,25 @@ int fdt_chosen(void *fdt)
 		strcat(command_line, " quiet");
 		env_set("bootargs", command_line);
 
+		//append nowayout
+#if defined(CONFIG_PLAT_RC03A1_4G)
+		char *nowayout_env;
+		e = env_get("bootargs");
+		nowayout_env = env_get("nowayout");
+		memset(command_line,0,sizeof(command_line));
+		memcpy(command_line,e,strlen(e));
+		if(!strcmp(nowayout_env,"false"))
+		{
+			strcat(command_line, " nowayout=false");
+			env_set("bootargs", command_line);
+		}
+		else
+		{
+			strcat(command_line, " nowayout=true");
+			env_set("bootargs", command_line);
+		}
+#endif
+
 		prop = fdt_getprop(fdt, 0, "model", NULL);
 		if(prop){
 			memset(command_line,0,sizeof(command_line));
