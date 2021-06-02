@@ -430,6 +430,8 @@ int fdt_chosen(void *fdt)
 			env_set("bootargs", command_line);
 			free(command_line);
 
+			//enable uart2
+			set_lcm_prop_by_alias(fdt, "serial2", 1);
 			//disable ttyFIQ0
 			node = fdt_subnode_offset(fdt, 0, "fiq-debugger");
 			if (node)
