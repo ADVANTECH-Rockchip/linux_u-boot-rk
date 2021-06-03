@@ -836,12 +836,11 @@ int fdt_chosen(void *fdt)
 
 		//append nowayout
 #if defined(CONFIG_PLAT_RC03A1_4G)
-		char *nowayout_env;
 		e = env_get("bootargs");
-		nowayout_env = env_get("nowayout");
+		str = env_get("nowayout");
 		memset(command_line,0,sizeof(command_line));
 		memcpy(command_line,e,strlen(e));
-		if(!strcmp(nowayout_env,"false"))
+		if(!strcmp(str,"false"))
 		{
 			strcat(command_line, " nowayout=false");
 			env_set("bootargs", command_line);
@@ -851,6 +850,18 @@ int fdt_chosen(void *fdt)
 			strcat(command_line, " nowayout=true");
 			env_set("bootargs", command_line);
 		}
+
+		str = env_get("downimg");
+		if(!strcmp(str, "yes"))
+		{
+			nodeoffset = fdtdec_get_alias_node(fdt, "u2phy0_otg");
+			if(nodeoffset)
+				fdt_delprop(fdt, nodeoffset, "vbus-supply");
+
+		}
+		nodeoffset = fdtdec_get_alias_node(fdt, "usbdrd_dwc3_0");
+		if(nodeoffset)
+			fdt_setprop_string(fdt, nodeoffset, "dr_mode","host");
 #endif
 
 		prop = fdt_getprop(fdt, 0, "model", NULL);
