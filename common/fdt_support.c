@@ -834,6 +834,7 @@ int fdt_chosen(void *fdt)
 		strcat(command_line, " quiet");
 		env_set("bootargs", command_line);
 
+		//disabled rc03 microUSB power when set env
 #if defined(CONFIG_PLAT_RC03A1_4G)
 		str = env_get("downimg");
 		if(!strcmp(str, "yes"))
@@ -843,9 +844,6 @@ int fdt_chosen(void *fdt)
 				fdt_delprop(fdt, nodeoffset, "vbus-supply");
 
 		}
-		nodeoffset = fdtdec_get_alias_node(fdt, "usbdrd_dwc3_0");
-		if(nodeoffset)
-			fdt_setprop_string(fdt, nodeoffset, "dr_mode","host");
 #endif
 
 		prop = fdt_getprop(fdt, 0, "model", NULL);
