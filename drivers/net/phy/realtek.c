@@ -49,6 +49,9 @@
 
 #define MIIM_RTL8211F_PAGE_SELECT      0x1f
 #define MIIM_RTL8211F_TX_DELAY		0x100
+#ifdef DISABLE_PHY_DELAY
+#define MIIM_RTL8211F_RX_DELAY		0x08
+#endif
 #define MIIM_RTL8211F_LCR		0x10
 
 static int rtl8211b_probe(struct phy_device *phydev)
@@ -107,6 +110,13 @@ static int rtl8211f_config(struct phy_device *phydev)
 		reg &= ~MIIM_RTL8211F_TX_DELAY;
 
 	phy_write(phydev, MDIO_DEVAD_NONE, 0x11, reg);
+
+#ifdef DISABLE_PHY_DELAY
+	reg = phy_read(phydev, MDIO_DEVAD_NONE, 0x15);
+	reg &= ~MIIM_RTL8211F_RX_DELAY;
+	phy_write(phydev, MDIO_DEVAD_NONE, 0x15, reg);
+#endif
+
 	/* restore to default page 0 */
 	phy_write(phydev, MDIO_DEVAD_NONE,
 		  MIIM_RTL8211F_PAGE_SELECT, 0x0);
