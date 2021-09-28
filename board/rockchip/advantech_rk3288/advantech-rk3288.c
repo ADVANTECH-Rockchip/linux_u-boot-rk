@@ -26,6 +26,7 @@
 #include <asm/gpio.h>
 #include <dm/pinctrl.h>
 #include <dt-bindings/clock/rk3288-cru.h>
+#include <boot_rkimg.h>
 
 #define GRF_BASE	0xff770000
 
@@ -67,7 +68,7 @@ int adv_board_early_init(void)
 #ifdef DEBUG2UART_GPIO
 	gpio_request(DEBUG2UART_GPIO,"DEBUG2UART_GPIO");
 	gpio_direction_input(DEBUG2UART_GPIO);
-	if (gpio_get_value(DEBUG2UART_GPIO) == DEBUG2UART_GPIO_ACTIVE) {
+	if (gpio_get_value(DEBUG2UART_GPIO) == DEBUG2UART_GPIO_ACTIVE && rockchip_get_boot_mode() != BOOT_MODE_RECOVERY) {
 		gd->flags |= GD_FLG_DISABLE_CONSOLE;
 		//reconfig iomux to defalt gpio
 		rk_clrsetreg(&grf->gpio7ch_iomux, GPIO7C7_MASK << GPIO7C7_SHIFT |
@@ -175,7 +176,7 @@ int rk3288_board_late_init(void)
 #ifdef DEBUG2UART_GPIO
 	gpio_request(DEBUG2UART_GPIO,"DEBUG2UART_GPIO");
 	gpio_direction_input(DEBUG2UART_GPIO);
-	if (gpio_get_value(DEBUG2UART_GPIO) == DEBUG2UART_GPIO_ACTIVE)
+	if (gpio_get_value(DEBUG2UART_GPIO) == DEBUG2UART_GPIO_ACTIVE && rockchip_get_boot_mode() != BOOT_MODE_RECOVERY)
 	{
 		env_set("switch_debug","yes");
 	}
