@@ -25,6 +25,7 @@
 #include <asm/arch/grf_rk3399.h>
 #include <asm/arch/cru_rk3399.h>
 #include <asm/arch/gpio.h>
+#include <boot_rkimg.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -53,7 +54,7 @@ int board_early_init_f(void)
 	gpio = (void *)GPIO1_PHYS;
 	pmugrf->gpio1a_iomux = 0x3 << 18;//gpio
 	gpio->swport_ddr &= ~0x2;//input
-	if ((gpio->ext_port&0x2)>>1 == DEBUG2UART_GPIO_ACTIVE) {
+	if ((gpio->ext_port&0x2)>>1 == DEBUG2UART_GPIO_ACTIVE && rockchip_get_boot_mode() != BOOT_MODE_RECOVERY) {
 		gd->flags |= GD_FLG_DISABLE_CONSOLE;
 		//reconfig iomux to defalt gpio
 		grf->gpio4c_iomux = 0xf << 22;
@@ -211,7 +212,7 @@ int rk_board_late_init(void)
 #ifdef DEBUG2UART_GPIO
 	gpio_request(DEBUG2UART_GPIO,"DEBUG2UART_GPIO");
 	gpio_direction_input(DEBUG2UART_GPIO);
-	if (gpio_get_value(DEBUG2UART_GPIO) == DEBUG2UART_GPIO_ACTIVE)
+	if (gpio_get_value(DEBUG2UART_GPIO) == DEBUG2UART_GPIO_ACTIVE && rockchip_get_boot_mode() != BOOT_MODE_RECOVERY)
 	{
 		gd->flags &= ~GD_FLG_DISABLE_CONSOLE;
 		env_set("switch_debug","yes");
