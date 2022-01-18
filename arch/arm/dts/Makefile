@@ -56,7 +56,7 @@ dtb-$(CONFIG_ARCH_ROCKCHIP) += \
 	rk3399-rsb4710-a2.dtb \
 	rk3399-rsb3710-a2.dtb \
 	rk3399-rom5780-a3.dtb \
-	rk3399-rom5781-a1.dtb \
+	rk3399-rom5780-b1.dtb \
 	rk3399-puma-ddr1333.dtb \
 	rk3399-puma-ddr1600.dtb \
 	rk3399-puma-ddr1866.dtb \

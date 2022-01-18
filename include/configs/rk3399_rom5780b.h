@@ -4,8 +4,8 @@
  * SPDX-License-Identifier:     GPL-2.0+
  */
 
-#ifndef __RK3399_ROM5781_H
-#define __RK3399_ROM5781_H
+#ifndef __RK3399_ROM5780B_H
+#define __RK3399_ROM5780B_H
 
 #include <configs/rk3399_common.h>
 

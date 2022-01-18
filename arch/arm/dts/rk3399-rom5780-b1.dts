@@ -14,13 +14,8 @@
 #include <dt-bindings/input/input.h>
 
 / {
-	model = "Advantech RK3399 ROM5781A1 GY Board";
-	compatible = "advantech-rom5781", "rockchip,rk3399";
-
-	chosen {
-		stdout-path = &uart0;
-		u-boot,spl-boot-order = &sdhci, &sdmmc;
-	};
+	model = "Advantech RK3399 ROM5780B1 Board";
+	compatible = "advantech-rom5780", "rockchip,rk3399";
 
 	vcc3v3_sys: vcc3v3-sys {
 		compatible = "regulator-fixed";
@@ -81,14 +76,8 @@
 	status = "okay";
 };
 
-&uart0 {
-	u-boot,dm-pre-reloc;
-	status = "okay";
-	clock-frequency = <24000000>;
-};
-
 &uart2 {
-	status = "disabled";
+	status = "okay";
 };
 
 &emmc_phy {
@@ -440,7 +429,7 @@
 	pinctrl-0 = <&rgmii_16ma_pins &rgmii_phy_reset>;
 	tx_delay = <0x2c>;
 	rx_delay = <0x1e>;
-	status = "disabled";
+	status = "okay";
 };
 
 &route_edp {
