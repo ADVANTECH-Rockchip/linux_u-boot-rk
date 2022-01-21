@@ -54,7 +54,7 @@ int board_early_init_f(void)
 	gpio = (void *)GPIO1_PHYS;
 	pmugrf->gpio1a_iomux = 0x3 << 18;//gpio
 	gpio->swport_ddr &= ~0x2;//input
-	if ((gpio->ext_port&0x2)>>1 == DEBUG2UART_GPIO_ACTIVE && rockchip_get_boot_mode() != BOOT_MODE_RECOVERY) {
+	if ((gpio->ext_port&0x2)>>1 == DEBUG2UART_GPIO_ACTIVE) {
 		gd->flags |= GD_FLG_DISABLE_CONSOLE;
 		//reconfig iomux to defalt gpio
 		grf->gpio4c_iomux = 0xf << 22;
