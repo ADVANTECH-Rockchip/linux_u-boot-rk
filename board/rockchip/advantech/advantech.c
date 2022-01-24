@@ -65,7 +65,7 @@ int board_early_init_f(void)
 #endif
 
 #ifdef DISABLE_MSP430
-#if defined(CONFIG_PLAT_ROM5780A3_2G) || defined(CONFIG_PLAT_ROM5781A1_2G)
+#if defined(CONFIG_PLAT_ROM5780A3_2G) || defined(CONFIG_PLAT_ROM5780B1_2G)
 	gpio = (void *)GPIO0_PHYS;
 	pmugrf->gpio0a_iomux = 0x3 << 28; //gpio_a6,wdt_en
 	pmugrf->gpio0b_iomux = 0x3 << 18;//gpio_b1,wdt_ping
