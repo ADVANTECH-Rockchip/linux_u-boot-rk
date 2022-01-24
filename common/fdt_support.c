@@ -27,6 +27,7 @@
 #include <fdtdec.h>
 #ifdef CONFIG_TARGET_ADVANTECH_RK3399
 #include <malloc.h>
+#include <linux/media-bus-format.h>
 #endif
 
 /**
@@ -333,6 +334,30 @@ void adv_disable_status_by_alias_node(void *blob, const char *name)
 	}
 }
 
+static int adv_fdt_set_lvds_bus_format(void *blob, u32 format)
+{
+	int node;
+	int err;
+
+	node = fdtdec_get_alias_node(blob, "dsi_bradge");
+	if(node > 0)
+	{
+		err = fdt_setprop_u32(blob, node, "bus-format", format);
+		if(err < 0)
+		{
+			printf("Error: Set lvds_panel bus-format err = %d \n", err);
+			return err;
+		}
+	}
+	else
+	{
+		printf("Error: Get lvds_panel bus-format failed \n");
+		return -FDT_ERR_NOTFOUND;
+	}
+
+	return 0;
+}
+
 extern int fdt_node_offset_by_phandle_node(const void *fdt, int node, uint32_t phandle);
 
 static int use_dts_screen=0;
@@ -385,6 +410,8 @@ static void adv_set_lcd_node(void *blob)
 	char *pwm;
 	unsigned long clock;
 	u32 array[4];
+	char* env_lvds_format;
+	int lvds_format;
 
 	node = fdt_path_offset(blob, "/fdt_dummy");
 	if(node)
@@ -500,6 +527,7 @@ static void adv_set_lcd_node(void *blob)
 			adv_enable_status_by_alias_node(blob, "dsi_vcc_io");
 			adv_enable_status_by_alias_node(blob, "lvds_pwr_vcc");
 			adv_enable_status_by_alias_node(blob, "lvds_bkl_vcc");
+			adv_enable_status_by_alias_node(blob, "dsi_bradge");
 			adv_disable_status_by_alias_node(blob, "dsi_in_vopb");
 			adv_disable_status_by_alias_node(blob, "dsi_in_vopl");
 			if(enable_vopb)
@@ -539,6 +567,26 @@ static void adv_set_lcd_node(void *blob)
 					fdt_delprop(blob, node, "regulator-boot-on");
 				}
 			}
+
+			env_lvds_format = env_get("lvds_format");
+			lvds_format = MEDIA_BUS_FMT_RGB888_1X7X4_SPWG;
+			if(env_lvds_format)
+			{
+				if(!memcmp(env_lvds_format,"rgb666_vesa", 11))
+				{
+					lvds_format = MEDIA_BUS_FMT_RGB666_1X7X3_SPWG;
+				}
+				if(!memcmp(env_lvds_format,"rgb666_jeida", 12))
+				{
+					lvds_format = MEDIA_BUS_FMT_RGB666_1X7X3_JEIDA;
+				}
+				if(!memcmp(env_lvds_format,"rgb888_jeida", 12))
+				{
+					lvds_format = MEDIA_BUS_FMT_RGB888_1X7X4_JEIDA;
+				}
+				adv_fdt_set_lvds_bus_format(blob, lvds_format);
+			}
+
 		}
 		else
 		{
@@ -546,6 +594,7 @@ static void adv_set_lcd_node(void *blob)
 			adv_disable_status_by_alias_node(blob, "dsi_in_vopb");
 			adv_disable_status_by_alias_node(blob, "dsi_in_vopl");
 			adv_disable_status_by_alias_node(blob, "dsi_route");
+			adv_disable_status_by_alias_node(blob, "dsi_bradge");
 		#ifdef CONFIG_ADV_EDP_LVDS_USE_THE_SAME_RESOURCE
 			if(!memcmp(p,"edp",3) || !memcmp(e,"edp",3)) {
 				//don't disable vcc & blk
