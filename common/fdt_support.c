@@ -828,11 +828,13 @@ int fdt_chosen(void *fdt)
 		}
 
 		//append quiet to bootargs
-		e = env_get("bootargs");
-		memset(command_line,0,sizeof(command_line));
-		memcpy(command_line,e,strlen(e));
-		strcat(command_line, " quiet");
-		env_set("bootargs", command_line);
+		if(!env_get("disable_quiet")){
+			e = env_get("bootargs");
+			memset(command_line,0,sizeof(command_line));
+			memcpy(command_line,e,strlen(e));
+			strcat(command_line, " quiet");
+			env_set("bootargs", command_line);
+		}
 
 		//disabled rc03 microUSB power when set env
 #if defined(CONFIG_PLAT_RC03A1_4G)
