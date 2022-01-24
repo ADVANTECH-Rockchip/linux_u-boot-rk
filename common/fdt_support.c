@@ -431,6 +431,7 @@ static void adv_set_lcd_node(void *blob)
 		{
 			adv_disable_status_by_alias_node(blob, "dp");
 			adv_disable_status_by_alias_node(blob, "vpd");
+			adv_disable_status_by_alias_node(blob, "dp_sound");
 			adv_disable_status_by_alias_node(blob, "dp_in_vopb");
 			adv_disable_status_by_alias_node(blob, "dp_in_vopl");
 
