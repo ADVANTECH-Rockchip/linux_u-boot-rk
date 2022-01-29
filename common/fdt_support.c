@@ -938,6 +938,10 @@ int fdt_chosen(void *fdt)
 				if(strstr(e," A")) {
 					strcat(command_line, e);
 				}
+				if(strstr(e," B")) {
+					strcat(command_line, e);
+				}
+
 			}
 
 			fdt_setprop(fdt, 0, "model", command_line,strlen(command_line)+1);
