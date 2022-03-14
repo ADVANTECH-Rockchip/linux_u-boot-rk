@@ -361,6 +361,7 @@ static int adv_fdt_set_lvds_bus_format(void *blob, u32 format)
 extern int fdt_node_offset_by_phandle_node(const void *fdt, int node, uint32_t phandle);
 
 static int use_dts_screen=0;
+static int use_dts_node=0;
 static void adv_parse_drm_env(void *fdt)
 {
 	char *p, *e;
@@ -369,36 +370,49 @@ static void adv_parse_drm_env(void *fdt)
 
 	node = fdt_path_offset(fdt, "/display-timings");
 	use_dts_screen = fdtdec_get_int(fdt, node, "use-dts-screen", 0);
-	if(!use_dts_screen || env_get("use_env_screen")){
+	use_dts_node = fdtdec_get_int(fdt, node, "use-dts-node", 0);
+	if(use_dts_node) //Only for rc03 mipi lcd when set use_dts_node
+	{
 		p = env_get("prmry_screen");
 		e = env_get("extend_screen");
 		if(!p || !e) {
-			phandle = fdt_getprop_u32_default_node(fdt, node, 0, "native-mode", -1);
-			if(-1 != phandle) {
-				node = fdt_node_offset_by_phandle_node(fdt, node, phandle);
-				env_set("extend_screen",fdt_get_name(fdt, node, NULL));
-			} else 
-				env_set("extend_screen","dp-default");
 			env_set("prmry_screen","hdmi-default");
+			env_set("extend_screen","mipi-tv080wxm");
 		}
-	} else {
-		phandle = fdt_getprop_u32_default_node(fdt, node, 0, "extend-screen", -1);
-		if(-1 != phandle)
-		{
-			node2 = fdt_node_offset_by_phandle_node(fdt, node, phandle);
-			env_set("extend_screen",fdt_get_name(fdt, node2, NULL));
-		}
-		else
-			env_set("extend_screen","null");
+	}
+	else
+	{
+		if(!use_dts_screen || env_get("use_env_screen")){
+			p = env_get("prmry_screen");
+			e = env_get("extend_screen");
+			if(!p || !e) {
+				phandle = fdt_getprop_u32_default_node(fdt, node, 0, "native-mode", -1);
+				if(-1 != phandle) {
+					node = fdt_node_offset_by_phandle_node(fdt, node, phandle);
+					env_set("extend_screen",fdt_get_name(fdt, node, NULL));
+				} else 
+					env_set("extend_screen","dp-default");
+				env_set("prmry_screen","hdmi-default");
+			}
+		} else {
+			phandle = fdt_getprop_u32_default_node(fdt, node, 0, "extend-screen", -1);
+			if(-1 != phandle)
+			{
+				node2 = fdt_node_offset_by_phandle_node(fdt, node, phandle);
+				env_set("extend_screen",fdt_get_name(fdt, node2, NULL));
+			}
+			else
+				env_set("extend_screen","null");
 
-		phandle = fdt_getprop_u32_default_node(fdt, node, 0, "prmry-screen", -1);
-		if(-1 != phandle)
-		{
-			node1 = fdt_node_offset_by_phandle_node(fdt, node, phandle);
-			env_set("prmry_screen",fdt_get_name(fdt, node1, NULL));
+			phandle = fdt_getprop_u32_default_node(fdt, node, 0, "prmry-screen", -1);
+			if(-1 != phandle)
+			{
+				node1 = fdt_node_offset_by_phandle_node(fdt, node, phandle);
+				env_set("prmry_screen",fdt_get_name(fdt, node1, NULL));
+			}
+			else
+				env_set("prmry_screen","null");
 		}
-		else
-			env_set("prmry_screen","null");
 	}
 }
 
@@ -992,8 +1006,11 @@ int fdt_chosen(void *fdt)
 			strcat(command_line, e);
 			env_set("bootargs", command_line);
 		}
-		if((!use_dts_screen) && (p || e))
-			adv_set_lcd_node(fdt);
+		if(!use_dts_node) //Only for rc03 mipi lcd, when set use_dts_node
+		{
+			if((!use_dts_screen) && (p || e))
+				adv_set_lcd_node(fdt);
+		}
 
 
 		adv_parse_uio_env(fdt);
