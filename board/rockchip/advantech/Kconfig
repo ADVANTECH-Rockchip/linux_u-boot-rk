@@ -91,7 +91,7 @@ endif
 
 if PLAT_RC03B1_4G
 config SYS_CONFIG_NAME
-	default "rk3399_rc03"
+	default "rk3399_rc03b"
 
 endif
 

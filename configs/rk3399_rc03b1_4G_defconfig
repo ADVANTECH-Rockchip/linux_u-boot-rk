@@ -20,7 +20,7 @@ CONFIG_SYS_CPU="armv8"
 CONFIG_SYS_SOC="rockchip"
 CONFIG_SYS_VENDOR="rockchip"
 CONFIG_SYS_BOARD="advantech"
-CONFIG_SYS_CONFIG_NAME="rk3399_rc03"
+CONFIG_SYS_CONFIG_NAME="rk3399_rc03b"
 
 #
 # ARM architecture
