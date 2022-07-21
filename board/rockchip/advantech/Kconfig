@@ -25,7 +25,10 @@ config PLAT_ROM5780B1_2G
 	bool "Support rom5780b1 2G"
 
 config PLAT_RC03A1_4G
-	bool "Support RC03 4G"
+	bool "Support RC03A1 4G"
+
+config PLAT_RC03B1_4G
+	bool "Support RC03B1 4G"
 endchoice
 
 config SYS_BOARD
@@ -81,6 +84,12 @@ config SYS_CONFIG_NAME
 endif
 
 if PLAT_RC03A1_4G
+config SYS_CONFIG_NAME
+	default "rk3399_rc03"
+
+endif
+
+if PLAT_RC03B1_4G
 config SYS_CONFIG_NAME
 	default "rk3399_rc03"
 
