@@ -287,6 +287,33 @@ int fdt_initrd(void *fdt, ulong initrd_start, ulong initrd_end)
 }
 
 #ifdef CONFIG_TARGET_ADVANTECH_RK3399
+static char lcd_prmry_screen[30]={0};
+static char lcd_extend_screen[30]={0};
+
+char* rockchip_drm_get_prmry_screen_name(void)
+{
+	return lcd_prmry_screen;
+}
+
+static void init_lcd_name(void)
+{
+	char *p, *e;
+	p = env_get("prmry_screen");
+	e = env_get("extend_screen");
+
+	if(p)
+	{
+		memcpy(lcd_prmry_screen, p, strlen(p));
+		printf("prmry_screen : %s \n", lcd_prmry_screen);
+	}
+
+	if(e)
+	{
+		memcpy(lcd_extend_screen, e, strlen(e));
+		printf("lcd_extend_screen : %s \n", lcd_extend_screen);
+	}
+}
+
 int fdtdec_get_alias_node(void *blob, const char *name)
 {
 	const char *prop;
@@ -361,7 +388,7 @@ static int adv_fdt_set_lvds_bus_format(void *blob, u32 format)
 }
 
 extern int fdt_node_offset_by_phandle_node(const void *fdt, int node, uint32_t phandle);
-static void adv_parse_drm_env(void *fdt)
+void adv_parse_drm_env(void *fdt)
 {
 	char *p, *e;
 	int node,node1,node2;
@@ -401,6 +428,19 @@ static void adv_parse_drm_env(void *fdt)
 		else
 			env_set("prmry_screen","null");
 	}
+
+	init_lcd_name();
+}
+
+static int adv_get_use_dts_config(void *fdt)
+{
+	int node;
+	int use_dts_config=0;
+
+	node = fdt_path_offset(fdt, "/display-timings");
+	use_dts_config = fdtdec_get_int(fdt, node, "use-dts-config", 0);
+
+	return use_dts_config;
 }
 
 static void adv_set_lcd_node(void *blob)
@@ -980,7 +1020,7 @@ int fdt_chosen(void *fdt)
 		}
 
 		// set screen begin
-		adv_parse_drm_env(fdt);
+		//adv_parse_drm_env(fdt);
 		e = env_get("bootargs");
 		memset(command_line,0,sizeof(command_line));
 		memcpy(command_line,e,strlen(e));
@@ -1001,7 +1041,7 @@ int fdt_chosen(void *fdt)
 			strcat(command_line, e);
 			env_set("bootargs", command_line);
 		}
-		if(p || e)
+		if((!adv_get_use_dts_config(fdt)) && (p || e))
 			adv_set_lcd_node(fdt);
 
 

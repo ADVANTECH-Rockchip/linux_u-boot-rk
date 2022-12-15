@@ -262,6 +262,81 @@ int drm_mode_vrefresh(const struct drm_display_mode *mode)
 	return refresh;
 }
 
+#ifdef CONFIG_TARGET_ADVANTECH_RK3399
+extern char* rockchip_drm_get_prmry_screen_name(void);
+
+static int display_get_timing_from_dts(struct panel_state *panel_state,
+				       struct drm_display_mode *mode)
+{
+	int hactive, vactive, pixelclock;
+	int hfront_porch, hback_porch, hsync_len;
+	int vfront_porch, vback_porch, vsync_len;
+	int val, flags = 0;
+	int timing, native_mode;
+	const void *blob = gd->fdt_blob;
+	char* screen_name;
+
+	timing = fdt_path_offset(blob, "/display-timings");
+	if (timing < 0)
+		return -ENODEV;
+
+	screen_name = rockchip_drm_get_prmry_screen_name();
+	native_mode = fdt_subnode_offset(blob, timing, screen_name);
+
+#define FDT_GET_INT(val, name) \
+	val = fdtdec_get_int(blob, native_mode, name, -1); \
+	if (val < 0) { \
+		printf("Can't get %s\n", name); \
+		return -ENXIO; \
+	}
+
+#define FDT_GET_INT_DEFAULT(val, name, default) \
+	val = fdtdec_get_int(blob, native_mode, name, -1); \
+	if (val < 0) { \
+		val = default; \
+	}
+
+	FDT_GET_INT(hactive, "hactive");
+	FDT_GET_INT(vactive, "vactive");
+	FDT_GET_INT(pixelclock, "clock-frequency");
+	FDT_GET_INT(hsync_len, "hsync-len");
+	FDT_GET_INT(hfront_porch, "hfront-porch");
+	FDT_GET_INT(hback_porch, "hback-porch");
+	FDT_GET_INT(vsync_len, "vsync-len");
+	FDT_GET_INT(vfront_porch, "vfront-porch");
+	FDT_GET_INT(vback_porch, "vback-porch");
+	FDT_GET_INT(val, "hsync-active");
+	flags |= val ? DRM_MODE_FLAG_PHSYNC : DRM_MODE_FLAG_NHSYNC;
+	FDT_GET_INT(val, "vsync-active");
+	flags |= val ? DRM_MODE_FLAG_PVSYNC : DRM_MODE_FLAG_NVSYNC;
+	FDT_GET_INT(val, "pixelclk-active");
+	flags |= val ? DRM_MODE_FLAG_PPIXDATA : 0;
+
+	FDT_GET_INT_DEFAULT(val, "screen-rotate", 0);
+	if (val == DRM_MODE_FLAG_XMIRROR) {
+		flags |= DRM_MODE_FLAG_XMIRROR;
+	} else if (val == DRM_MODE_FLAG_YMIRROR) {
+		flags |= DRM_MODE_FLAG_YMIRROR;
+	} else if (val == DRM_MODE_FLAG_XYMIRROR) {
+		flags |= DRM_MODE_FLAG_XMIRROR;
+		flags |= DRM_MODE_FLAG_YMIRROR;
+	}
+	mode->hdisplay = hactive;
+	mode->hsync_start = mode->hdisplay + hfront_porch;
+	mode->hsync_end = mode->hsync_start + hsync_len;
+	mode->htotal = mode->hsync_end + hback_porch;
+
+	mode->vdisplay = vactive;
+	mode->vsync_start = mode->vdisplay + vfront_porch;
+	mode->vsync_end = mode->vsync_start + vsync_len;
+	mode->vtotal = mode->vsync_end + vback_porch;
+
+	mode->clock = pixelclock / 1000;
+	mode->flags = flags;
+
+	return 0;
+}
+#else
 static int display_get_timing_from_dts(struct panel_state *panel_state,
 				       struct drm_display_mode *mode)
 {
@@ -337,6 +412,7 @@ static int display_get_timing_from_dts(struct panel_state *panel_state,
 
 	return 0;
 }
+#endif
 
 /**
  * drm_mode_max_resolution_filter - mark modes out of vop max resolution

@@ -541,6 +541,10 @@ static int initr_env_nowhere(void)
 #endif
 }
 
+#ifdef CONFIG_TARGET_ADVANTECH_RK3399
+extern void adv_parse_drm_env(void *fdt);
+#endif
+
 #if !defined(CONFIG_ENV_IS_NOWHERE)
 /*
  * storage has been initialized in board_init(), we could switch env
@@ -582,6 +586,10 @@ static int initr_env_switch(void)
 		env_update("bootargs", data);
 		env_set("bootargs_tmp", NULL);
 	}
+
+#ifdef CONFIG_TARGET_ADVANTECH_RK3399
+	adv_parse_drm_env((void *)gd->fdt_blob);
+#endif
 
 	return 0;
 }

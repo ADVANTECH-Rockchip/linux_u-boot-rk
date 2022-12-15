@@ -25,6 +25,10 @@
 #include "rockchip_connector.h"
 #include "rockchip_panel.h"
 
+#ifdef CONFIG_TARGET_ADVANTECH_RK3399
+extern char* rockchip_drm_get_prmry_screen_name(void);
+#endif
+
 struct rockchip_cmd_header {
 	u8 data_type;
 	u8 delay_ms;
@@ -396,6 +400,12 @@ static int rockchip_panel_ofdata_to_platdata(struct udevice *dev)
 	int len = 0;
 	int ret;
 
+#ifdef CONFIG_TARGET_ADVANTECH_RK3399
+	char* screen_name;
+	int timing, native_mode;
+	const void *blob = gd->fdt_blob;
+#endif
+
 	plat->power_invert = dev_read_bool(dev, "power-invert");
 
 	plat->delay.prepare = dev_read_u32_default(dev, "prepare-delay-ms", 0);
@@ -409,7 +419,21 @@ static int rockchip_panel_ofdata_to_platdata(struct udevice *dev)
 						MEDIA_BUS_FMT_RBG888_1X24);
 	plat->bpc = dev_read_u32_default(dev, "bpc", 8);
 
+#ifdef CONFIG_TARGET_ADVANTECH_RK3399
+	timing = fdt_path_offset(blob, "/display-timings");
+	if (timing < 0) {
+		printf("rk fb dt: can't find node '/display-timings'\n");
+		return -ENODEV;
+	}
+
+	screen_name = rockchip_drm_get_prmry_screen_name();
+	native_mode = fdt_subnode_offset(blob, timing, screen_name);
+	data = fdt_getprop(blob, native_mode, "panel-init-sequence", &len);
+
+#else
 	data = dev_read_prop(dev, "panel-init-sequence", &len);
+#endif
+
 	if (data) {
 		plat->on_cmds = calloc(1, sizeof(*plat->on_cmds));
 		if (!plat->on_cmds)
