@@ -25,6 +25,10 @@
 #include "rockchip_panel.h"
 #include "rockchip_phy.h"
 
+#ifdef CONFIG_TARGET_ADVANTECH_RK3399
+#include <asm/gpio.h>
+#endif
+
 #define UPDATE(v, h, l)		(((v) << (l)) & GENMASK((h), (l)))
 
 #define DSI_VERSION			0x00
@@ -233,6 +237,14 @@ struct dw_mipi_dsi {
 	void *base;
 	void *grf;
 	int id;
+
+#ifdef CONFIG_TARGET_ADVANTECH_RK3399
+	struct gpio_desc power_gpio;
+	struct gpio_desc power_io_gpio;
+	struct gpio_desc reset_gpio;
+	struct gpio_desc enable_gpio;
+#endif
+
 	struct dw_mipi_dsi *master;
 	struct dw_mipi_dsi *slave;
 	bool prepared;
@@ -721,7 +733,11 @@ static ssize_t dw_mipi_dsi_transfer(struct dw_mipi_dsi *dsi,
 
 	if (msg->flags & MIPI_DSI_MSG_USE_LPM) {
 		dsi_update_bits(dsi, DSI_VID_MODE_CFG, LP_CMD_EN, LP_CMD_EN);
+	#ifdef CONFIG_TARGET_ADVANTECH_RK3399
+		dsi_update_bits(dsi, DSI_LPCLK_CTRL, PHY_TXREQUESTCLKHS, PHY_TXREQUESTCLKHS);
+	#else
 		dsi_update_bits(dsi, DSI_LPCLK_CTRL, PHY_TXREQUESTCLKHS, 0);
+	#endif
 	} else {
 		dsi_update_bits(dsi, DSI_VID_MODE_CFG, LP_CMD_EN, 0);
 		dsi_update_bits(dsi, DSI_LPCLK_CTRL,
@@ -943,6 +959,35 @@ static void dw_mipi_dsi_post_disable(struct dw_mipi_dsi *dsi)
 		dw_mipi_dsi_post_disable(dsi->slave);
 }
 
+#ifdef CONFIG_TARGET_ADVANTECH_RK3399
+static void rockchip_dsi_external_bridge_power_off(struct dw_mipi_dsi *dsi)
+{
+	struct gpio_desc *enable_gpio = &dsi->enable_gpio;
+	struct gpio_desc *reset_gpio = &dsi->reset_gpio;
+
+	dm_gpio_set_value(reset_gpio, 1);
+	dm_gpio_set_value(enable_gpio, 0);
+}
+
+static void rockchip_dsi_external_bridge_power_on(struct dw_mipi_dsi *dsi)
+{
+	struct gpio_desc *enable_gpio = &dsi->enable_gpio;
+	struct gpio_desc *reset_gpio = &dsi->reset_gpio;
+	struct gpio_desc *power_gpio = &dsi->power_gpio;
+	struct gpio_desc *power_io_gpio = &dsi->power_io_gpio;
+
+	dm_gpio_set_value(power_io_gpio, 1);
+	udelay(1000);
+	dm_gpio_set_value(power_gpio, 1);
+
+	dm_gpio_set_value(enable_gpio, 1);
+	udelay(1000);
+	dm_gpio_set_value(reset_gpio, 0);
+	udelay(1000);
+	dm_gpio_set_value(reset_gpio, 1);
+}
+#endif
+
 static void dw_mipi_dsi_init(struct dw_mipi_dsi *dsi)
 {
 	u32 esc_clk_div;
@@ -1134,6 +1179,21 @@ static int dw_mipi_dsi_connector_init(struct display_state *state)
 		conn_state->output_type = ROCKCHIP_OUTPUT_DSI_DUAL_CHANNEL;
 	}
 
+#ifdef CONFIG_TARGET_ADVANTECH_RK3399
+	gpio_request_by_name(conn_state->dev, "power-gpios", 0, &dsi->power_gpio,
+				   GPIOD_IS_OUT);
+
+	gpio_request_by_name(conn_state->dev, "power-io-gpios", 0, &dsi->power_io_gpio,
+				   GPIOD_IS_OUT);
+
+	gpio_request_by_name(conn_state->dev, "reset-gpios", 0, &dsi->reset_gpio,
+				   GPIOD_IS_OUT);
+
+	gpio_request_by_name(conn_state->dev, "enable-gpios", 0, &dsi->enable_gpio,
+				   GPIOD_IS_OUT);
+
+#endif
+
 	return 0;
 }
 
@@ -1246,6 +1306,9 @@ static int dw_mipi_dsi_connector_prepare(struct display_state *state)
 	       dsi->lane_mbps, dsi->slave ? dsi->lanes * 2 : dsi->lanes);
 
 	dw_mipi_dsi_vop_routing(dsi, crtc_state->crtc_id);
+#ifdef CONFIG_TARGET_ADVANTECH_RK3399
+	rockchip_dsi_external_bridge_power_on(dsi);
+#endif
 	dw_mipi_dsi_pre_enable(dsi);
 
 	return 0;
@@ -1274,6 +1337,9 @@ static int dw_mipi_dsi_connector_disable(struct display_state *state)
 	struct connector_state *conn_state = &state->conn_state;
 	struct dw_mipi_dsi *dsi = dev_get_priv(conn_state->dev);
 
+#ifdef CONFIG_TARGET_ADVANTECH_RK3399
+	rockchip_dsi_external_bridge_power_off(dsi);
+#endif
 	dw_mipi_dsi_disable(dsi);
 
 	return 0;
