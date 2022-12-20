@@ -243,6 +243,12 @@ int rk_board_late_init(void)
 	gpio_free(DISABLE_EDP_PWM_GPIO);
 #endif
 
+#ifdef DISABLE_TP_GPIO
+	gpio_request(DISABLE_TP_GPIO,"DISABLE_TP_GPIO");
+	gpio_direction_output(DISABLE_TP_GPIO,0);
+	gpio_free(DISABLE_TP_GPIO);
+#endif
+
 	memset(version,0,sizeof(version));
 	snprintf((char *)version,sizeof(version),"%s",strrchr(PLAIN_VERSION,'V'));
 	if(version[0]=='V')
