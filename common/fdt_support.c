@@ -841,6 +841,23 @@ int fdt_chosen(void *fdt)
 			str = env_get("bootargs");
 		}
 
+		if(env_get("bootmode")){
+			//parse earlycon
+			str = env_get("bootargs");
+			memset(command_line,0,sizeof(command_line));
+			p = str;
+			e = p;
+			p = strstr(p,"root=");
+			strncpy(command_line, e, p-e);
+			snprintf(command_line, strlen(command_line)+strlen(env_get("bootmode"))+6,
+						"%sroot=%s", command_line, env_get("bootmode"));
+			len = strlen(command_line);
+			p = strstr(p," ");
+			strncpy(command_line+len, p, strlen(p));
+			command_line[strlen(command_line)] = '\0';
+			env_set("bootargs", command_line);
+		}
+
 		if(env_get("androidboot.serialno")){
 			str = env_get("bootargs");
 			memset(command_line,0,sizeof(command_line));
