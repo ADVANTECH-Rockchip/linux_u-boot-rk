@@ -12,6 +12,9 @@ config PLAT_RSB3710A2_2G
 config PLAT_RSB4710A2_2G
 	bool "Support rsb4710a2 2G"
 
+config PLAT_DS211HX
+	bool "Support ds211hx"
+
 config PLAT_ROM5780A1_2G
 	bool "Support rom5780a1 2G"
 
@@ -57,6 +60,11 @@ if PLAT_RSB4710A2_2G
 config SYS_CONFIG_NAME
 	default "rk3399_rsb4710"
 
+endif
+
+if PLAT_DS211HX
+config SYS_CONFIG_NAME
+	default "rk3399_ds211hx"
 endif
 
 if PLAT_ROM5780A1_2G
