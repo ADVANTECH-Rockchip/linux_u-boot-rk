@@ -36,9 +36,11 @@ DECLARE_GLOBAL_DATA_PTR;
 
 int board_early_init_f(void)
 {
+#if (defined(ADV_GRF_IO_VSEL) || defined(ENABLE_PCIERST_GPIO) || defined(DEBUG2UART_GPIO) || defined(DISABLE_MSP430) || defined(PULLDOWN_MIPI2LVDS_RESET) || defined(CONFIG_RESET_PMIC_GPIO)) 
 	struct rk3399_grf_regs * const grf = (void *)GRF_BASE;
 	struct rk3399_pmugrf_regs *pmugrf = (void *)PMUGRF_BASE;
 	struct rockchip_gpio_regs *gpio = NULL;
+#endif
 #ifdef ADV_GRF_IO_VSEL
 	grf->io_vsel = ADV_GRF_IO_VSEL;
 #endif
