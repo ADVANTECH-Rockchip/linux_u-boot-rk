@@ -195,10 +195,11 @@ int usb_disable_asynch(int disable)
 /*
  * submits an Interrupt Message
  */
-int usb_submit_int_msg(struct usb_device *dev, unsigned long pipe,
-			void *buffer, int transfer_len, int interval)
+int usb_int_msg(struct usb_device *dev, unsigned long pipe,
+		void *buffer, int transfer_len, int interval, bool nonblock)
 {
-	return submit_int_msg(dev, pipe, buffer, transfer_len, interval);
+	return submit_int_msg(dev, pipe, buffer, transfer_len, interval,
+			      nonblock);
 }
 
 /*

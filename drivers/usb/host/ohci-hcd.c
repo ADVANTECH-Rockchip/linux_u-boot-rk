@@ -65,6 +65,7 @@
 #define OHCI_CONTROL_INIT \
 	(OHCI_CTRL_CBSR & 0x3) | OHCI_CTRL_IE | OHCI_CTRL_PLE
 
+#if !CONFIG_IS_ENABLED(DM_USB)
 #ifdef CONFIG_PCI_OHCI
 static struct pci_device_id ohci_pci_ids[] = {
 	{0x10b9, 0x5237},	/* ULI1575 PCI OHCI module ids */
@@ -73,6 +74,7 @@ static struct pci_device_id ohci_pci_ids[] = {
 	/* Please add supported PCI OHCI controller ids here */
 	{0, 0}
 };
+#endif
 #endif
 
 #ifdef CONFIG_PCI_EHCI_DEVNO
@@ -1546,10 +1548,8 @@ static int submit_common_msg(ohci_t *ohci, struct usb_device *dev,
 		return -1;
 	}
 
-#if 0
 	mdelay(10);
 	/* ohci_dump_status(ohci); */
-#endif
 
 	timeout = USB_TIMEOUT_MS(pipe);
 
@@ -1703,7 +1703,7 @@ int submit_bulk_msg(struct usb_device *dev, unsigned long pipe, void *buffer,
 }
 
 int submit_int_msg(struct usb_device *dev, unsigned long pipe, void *buffer,
-		int transfer_len, int interval)
+		int transfer_len, int interval, bool nonblock)
 {
 	info("submit_int_msg");
 	return submit_common_msg(&gohci, dev, pipe, buffer, transfer_len, NULL,
@@ -2152,7 +2152,7 @@ static int ohci_submit_bulk_msg(struct udevice *dev, struct usb_device *udev,
 
 static int ohci_submit_int_msg(struct udevice *dev, struct usb_device *udev,
 			       unsigned long pipe, void *buffer, int length,
-			       int interval)
+			       int interval, bool nonblock)
 {
 	ohci_t *ohci = dev_get_priv(usb_get_bus(dev));
 

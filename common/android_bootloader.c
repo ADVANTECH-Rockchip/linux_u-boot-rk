@@ -1081,6 +1081,10 @@ static int load_android_image(struct blk_desc *dev_desc,
 	return 0;
 }
 
+#ifdef CONFIG_ROCKCHIP_USB_BOOT
+extern int boot_from_udisk(void);
+#endif
+
 int android_bootloader_boot_flow(struct blk_desc *dev_desc,
 				 unsigned long load_address)
 {
@@ -1182,6 +1186,9 @@ int android_bootloader_boot_flow(struct blk_desc *dev_desc,
 			return -1;
 		}
 	} else {
+		boot_from_udisk();
+		dev_desc = blk_get_dev("usb", 0);
+
 		part_num = part_get_info_by_name(dev_desc,
 						 ANDROID_PARTITION_VBMETA,
 						 &vbmeta_part_info);

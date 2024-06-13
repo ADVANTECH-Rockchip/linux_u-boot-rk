@@ -433,6 +433,7 @@ int blk_get_device(int if_type, int devnum, struct udevice **devp)
 	return device_probe(*devp);
 }
 
+#if 0
 unsigned long blk_dread(struct blk_desc *block_dev, lbaint_t start,
 			lbaint_t blkcnt, void *buffer)
 {
@@ -453,6 +454,53 @@ unsigned long blk_dread(struct blk_desc *block_dev, lbaint_t start,
 
 	return blks_read;
 }
+#else
+unsigned long blk_dread(struct blk_desc *block_dev, lbaint_t start,
+                        lbaint_t blkcnt, void *buffer)
+{
+    struct udevice *dev = block_dev->bdev;
+    const struct blk_ops *ops = blk_get_ops(dev);
+    ulong blks_read = 0;
+	const int onecnt = 800;
+    int full_blocks = blkcnt / onecnt;
+    ulong remainder_blocks = blkcnt % onecnt;
+    void *curr_buffer = buffer; // 用于迭代过程中更新buffer的指针
+
+    // Read full blocks
+    for (int i = 0; i < full_blocks; i++) {
+        if (!ops->read)
+            return -ENOSYS;
+
+        if (blkcache_read(block_dev->if_type, block_dev->devnum,
+                          start, onecnt, block_dev->blksz, curr_buffer))
+            return -EIO;
+
+        blks_read += ops->read(dev, start, onecnt, curr_buffer);
+        if (blks_read == onecnt)
+            blkcache_fill(block_dev->if_type, block_dev->devnum,
+                          start, onecnt, block_dev->blksz, curr_buffer);
+        start += onecnt;
+        curr_buffer += (onecnt * block_dev->blksz); // 更新buffer指针
+    }
+
+    // Read remaining blocks
+    if (remainder_blocks > 0) {
+        if (!ops->read)
+            return -ENOSYS;
+
+        if (blkcache_read(block_dev->if_type, block_dev->devnum,
+                          start, remainder_blocks, block_dev->blksz, curr_buffer))
+            return -EIO;
+
+        blks_read += ops->read(dev, start, remainder_blocks, curr_buffer);
+        if (blks_read == remainder_blocks)
+            blkcache_fill(block_dev->if_type, block_dev->devnum,
+                          start, remainder_blocks, block_dev->blksz, curr_buffer);
+    }
+
+    return blks_read;
+}
+#endif
 
 unsigned long blk_dwrite(struct blk_desc *block_dev, lbaint_t start,
 			 lbaint_t blkcnt, const void *buffer)

@@ -20,7 +20,7 @@
 #include <asm/unaligned.h>
 #include <linux/errno.h>
 
-#include "xhci.h"
+#include <usb/xhci.h>
 
 /**
  * Is this TRB a link TRB or was the last TRB the last TRB in this event ring
@@ -226,6 +226,7 @@ static int prepare_ring(struct xhci_ctrl *ctrl, struct xhci_ring *ep_ring,
 		return -EINVAL;
 	case EP_STATE_HALTED:
 		puts("WARN halted endpoint, queueing URB anyway.\n");
+		return -EINVAL;
 	case EP_STATE_STOPPED:
 	case EP_STATE_RUNNING:
 		debug("EP STATE RUNNING.\n");
@@ -467,11 +468,13 @@ union xhci_trb *xhci_wait_for_event(struct xhci_ctrl *ctrl, trb_type expected)
 		xhci_acknowledge_event(ctrl);
 	} while (get_timer(ts) < XHCI_TIMEOUT);
 
-	if (expected == TRB_TRANSFER)
+/*	if (expected == TRB_TRANSFER)
 		return NULL;
 
 	printf("XHCI timeout on event type %d... cannot recover.\n", expected);
 	BUG();
+*/
+	return NULL;
 }
 
 /*
@@ -828,7 +831,7 @@ int xhci_ctrl_tx(struct usb_device *udev, unsigned long pipe,
 		field |= 0x1;
 
 	/* xHCI 1.0 6.4.1.2.1: Transfer Type field */
-	if (HC_VERSION(xhci_readl(&ctrl->hccr->cr_capbase)) == 0x100) {
+	if (HC_VERSION(xhci_readl(&ctrl->hccr->cr_capbase)) >= 0x100) {
 		if (length > 0) {
 			if (req->requesttype & USB_DIR_IN)
 				field |= (TRB_DATA_IN << TRB_TX_TYPE_SHIFT);

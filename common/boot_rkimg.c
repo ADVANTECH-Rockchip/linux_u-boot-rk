@@ -516,6 +516,10 @@ fallback:
 		printf("boot mode: loader\n");
 		boot_mode = BOOT_MODE_LOADER;
 		clear_boot_reg = 1;
+	} else if (reg_boot_mode == BOOT_LOADERUSB) {
+		printf("boot mode: loaderusb\n");
+		boot_mode = BOOT_MODE_LOADERUSB;
+		clear_boot_reg = 1;
 	} else if (reg_boot_mode == BOOT_FASTBOOT) {
 		printf("boot mode: bootloader\n");
 		boot_mode = BOOT_MODE_BOOTLOADER;

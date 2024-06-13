@@ -22,7 +22,7 @@
 #include <asm/cache.h>
 #include <linux/errno.h>
 
-#include "xhci.h"
+#include <usb/xhci.h>
 
 #define CACHELINE_SIZE		CONFIG_SYS_CACHELINE_SIZE
 /**
@@ -369,6 +369,9 @@ static int xhci_scratchpad_alloc(struct xhci_ctrl *ctrl)
 		goto fail_sp2;
 	ctrl->dcbaa->dev_context_ptrs[0] =
 		cpu_to_le64((uintptr_t)scratchpad->sp_array);
+
+	xhci_flush_cache((uintptr_t)&ctrl->dcbaa->dev_context_ptrs[0],
+		sizeof(ctrl->dcbaa->dev_context_ptrs[0]));
 
 	page_size = xhci_readl(&hcor->or_pagesize) & 0xffff;
 	for (i = 0; i < 16; i++) {

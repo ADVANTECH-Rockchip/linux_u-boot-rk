@@ -499,9 +499,23 @@ static int initr_env_nowhere(void)
 	env_reloc();
 	env_htab.change_ok += gd->reloc_off;
 #endif
-	set_default_env(NULL);
 
+#ifdef CONFIG_ENV_IS_NOWHERE
+	set_default_env(NULL);
 	return 0;
+#else
+	const char env_minimum[] = {
+		ENV_MEM_LAYOUT_SETTINGS
+#ifdef ENV_MEM_LAYOUT_SETTINGS1
+		ENV_MEM_LAYOUT_SETTINGS1
+#endif
+#ifdef RKIMG_DET_BOOTDEV
+		RKIMG_DET_BOOTDEV
+#endif
+	};
+
+	return set_board_env((char *)env_minimum, ENV_SIZE, 0, true);
+#endif
 }
 
 #if !defined(CONFIG_ENV_IS_NOWHERE)

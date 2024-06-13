@@ -115,29 +115,51 @@
 	status = "okay";
 };
 
-&usb_host0_ehci {
+&tcphy0 {
+	status = "disabled";
+};
+
+&u2phy1 {
 	status = "okay";
 };
 
+&tcphy1 {
+	status = "okay";
+};
+
+&tcphy1_usb3 {
+	status = "okay";
+};
+
+&usb_host0_ehci {
+	status = "disabled";
+};
+
 &usb_host0_ohci {
+	status = "disabled";
+};
+
+&usbdrd3_0 {
+	status = "disabled";
+};
+
+&usbdrd3_1 {
+	status = "okay";
+};
+
+&usbdrd_dwc3_0 {
+	status = "disabled";
+};
+
+&usbdrd_dwc3_1 {
 	status = "okay";
 };
 
 &usb_host1_ehci {
-	status = "okay";
-};
-
-&usb_host1_ohci {
-	status = "okay";
-};
-
-&dwc3_typec0 {
-	//vbus-supply = <&vcc5v0_typec0>;
 	status = "disabled";
 };
 
-&dwc3_typec1 {
-	//vbus-supply = <&vcc5v0_typec1>;
+&usb_host1_ohci {
 	status = "disabled";
 };
 

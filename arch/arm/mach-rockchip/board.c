@@ -162,7 +162,7 @@ int fb_set_reboot_flag(void)
 #endif
 
 #ifdef CONFIG_ROCKCHIP_USB_BOOT
-static int boot_from_udisk(void)
+int boot_from_udisk(void)
 {
 	struct blk_desc *desc;
 	char *devtype;
@@ -221,7 +221,7 @@ int board_late_init(void)
 	setup_boot_mode();
 #endif
 #ifdef CONFIG_ROCKCHIP_USB_BOOT
-	boot_from_udisk();
+//	boot_from_udisk();
 #endif
 #ifdef CONFIG_DM_CHARGE_DISPLAY
 	charge_display();

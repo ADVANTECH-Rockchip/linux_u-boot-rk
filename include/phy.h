@@ -10,6 +10,7 @@
 #ifndef _PHY_H
 #define _PHY_H
 
+#include <dm.h>
 #include <linux/list.h>
 #include <linux/mii.h>
 #include <linux/ethtool.h>
@@ -164,6 +165,7 @@ struct phy_device {
 
 #ifdef CONFIG_DM_ETH
 	struct udevice *dev;
+	ofnode node;
 #else
 	struct eth_device *dev;
 #endif

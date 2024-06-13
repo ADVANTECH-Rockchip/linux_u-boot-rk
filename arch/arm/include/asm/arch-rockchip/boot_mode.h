@@ -23,6 +23,10 @@
 #ifdef CONFIG_ADV_SYSTEM_BACKUP
 #define BOOT_BACKUP		(REBOOT_FLAG + 16)
 #endif
+
+/* enter loader rockusb mode */
+#define BOOT_LOADERUSB		(REBOOT_FLAG + 18)
+
 /* enter bootrom download mode */
 #define BOOT_BROM_DOWNLOAD	0xEF08A53C
 
