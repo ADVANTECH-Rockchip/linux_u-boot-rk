@@ -14,7 +14,7 @@
 #include <dt-bindings/input/input.h>
 
 / {
-	model = "Advabtech DS-211hx AKS0000000000 V10000 A1";
+	model = "DS-211 AKS0000000000 V10000 A1";
 	compatible = "rockchip,rk3399-ds211hx", "rockchip,rk3399";
 	
 	chosen {
