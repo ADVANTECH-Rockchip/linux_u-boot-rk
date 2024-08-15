@@ -286,12 +286,6 @@ int rk_board_late_init(void)
 		goto out;
 	}
 
-	ret = blk_select_hwpart_devnum(IF_TYPE_MMC, dev_desc->devnum, ori_hwpart);
-	if (ret){
-		printf("failed to select user data part\n");
-		goto out;
-	}
-
 	valid = is_valid_ethaddr(buf);
 	if (valid)
 		eth_env_set_enetaddr("ethaddr", buf);
@@ -351,7 +345,19 @@ int rk_board_late_init(void)
 		env_set("hwversion", NULL);
 	}
 
+	ret = blk_dread(dev_desc, 1, blk_cnt, buf);
+	sn_len = buf[0];
+	if(sn_len && (sn_len <= 20))
+	{
+            buf[1+sn_len] = '\0';
+            env_set("boardsn", (const char *)(buf+1));
+	}
+
 out:
+	blk_select_hwpart_devnum(IF_TYPE_MMC, dev_desc->devnum, ori_hwpart);
+	if (ret != blk_cnt) {
+            printf("Error: %s: failed to read boot_part hdr!\n", __func__);
+	}
 	free(buf);
 
 	return 0;
