@@ -54,6 +54,7 @@ dtb-$(CONFIG_ARCH_ROCKCHIP) += \
 	rk3399-evb.dtb \
 	rk3399-firefly.dtb \
 	rk3399-rsb4710-a2.dtb \
+	rk3399-rsb4710-a2-lite.dtb \
 	rk3399-rsb3710-a2.dtb \
 	rk3399-rom5780-a3.dtb \
 	rk3399-rom5780-b1.dtb \
